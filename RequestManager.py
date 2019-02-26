@@ -1,10 +1,7 @@
-import definitions
 import requests
 
 
 class RequestManager:
-    def __init__(self):
-        pass
-
-    def unauthenticated_request(self, url):
+    @staticmethod
+    def unauthenticated_request(url):
         return requests.get(url)
