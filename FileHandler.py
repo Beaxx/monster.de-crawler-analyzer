@@ -3,7 +3,7 @@ import definitions as defi
 import pickle
 import re
 import hashlib
-from Logic import Posting
+from Parsing import Posting
 
 
 class FileHandler:
@@ -61,7 +61,7 @@ class FileHandler:
         with open(os.path.join(folder_path, search_term + ".pcl"), "wb+") as f:
             pickle.dump(job_postings, f)
 
-    def unpickle_postings(self, search_term:str) -> list:
+    def unpickle_postings(self, search_term: str) -> list:
         folder_path = os.path.join(defi.SKRIPT_PATH, "Storage")
         self.if_folder_not_existent_create(folder_path)
 
@@ -74,7 +74,7 @@ class FileHandler:
                 return re.sub(r'\W', "", job_posting.title)[:40]
             except TypeError:
                 md5 = hashlib.md5(job_posting)
-                return "unknown"+str(md5[:20])  # Adding part of hash to avoid name collision
+                return "unknown" + str(md5[:20])  # Adding part of hash to avoid name collision
 
         folder_path = os.path.join(defi.SKRIPT_PATH, "Postings")
         self.if_folder_not_existent_create(folder_path)

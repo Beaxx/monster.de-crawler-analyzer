@@ -1,5 +1,5 @@
 from RequestManager import RequestManager
-from Logic import PostingLinkParser, PostingParser
+from Parsing import PostingLinkParser, PostingParser
 from FileHandler import FileHandler
 import definitions
 import time
@@ -48,8 +48,8 @@ class MainController:
             self.file_handler.print_postings_to_file(self.job_postings)
             # print((self.posting_parser.parsing_coverage(len(self.job_postings), len(self.deep_links))))
 
-        if 1 in options and 2 in options:
-            pass # Analyse to implement
+        # if 1 in options and 2 in options:
+        #     pass # Analyse to implement
 
         return "Done"
 
