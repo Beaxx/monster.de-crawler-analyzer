@@ -1,7 +1,7 @@
 Monster.de Crawler & Analyzer
 ===
 
-Dependencie
+Dependencies
 ---
 * requests
 * lxml
