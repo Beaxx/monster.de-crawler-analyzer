@@ -1,7 +1,7 @@
 Monster.de Crawler & Analyzer
 ===
 
-Dependencie
+Dependencies
 ---
 * requests (Handling Requests to Server)
 * lxml (Parsing HTML)
