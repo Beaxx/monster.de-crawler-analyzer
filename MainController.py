@@ -1,8 +1,8 @@
 from RequestManager import RequestManager
 from Parsing import PostingLinkParser, PostingParser
 from FileHandler import FileHandler
-import definitions
 import time
+import logging
 
 
 class MainController:
@@ -24,11 +24,14 @@ class MainController:
                 self.job_postings.append(posting)
 
             count += 1
-            if count % 20 == 0:
-                self.print_parsing_progress(count)
+            logging.info(self.parsing_progress(count))
+        logging.info(self.parsing_coverage())
 
-    def print_parsing_progress(self, count: int):
-        print("Fortschritt: {0}%".format(round(count / len(self.deep_links) * 100, 2)))
+    def parsing_progress(self, count: int) -> str:
+        return "Fortschritt: {0}%".format(round(count / len(self.deep_links) * 100, 2))
+
+    def parsing_coverage(self) -> str:
+        return "Parsing coverage: {0}%".format(round(len(self.job_postings) / len(self.deep_links) * 100, 2))
 
     def run_wih_flags(self, search_term: str, options: list, use_stored_links=False, use_stored_postings=False):
         self.search_term = search_term
@@ -50,8 +53,6 @@ class MainController:
 
         # if 1 in options and 2 in options:
         #     pass # Analyse to implement
-
-        return "Done"
 
 # controller = MainController()
 # controller.run_wih_flags("digital change management", [0, 1], use_stored_links=False, use_stored_postings=False)

@@ -1,14 +1,24 @@
+from io import StringIO
 import npyscreen as np
 from MainController import MainController
 import definitions
 import logging.handlers
 import time
 import threading
+import sys
 
 menutext = {
-    "title": "Monster.de Crawler V0.1",
+    "title": "Monster.de Crawler V0.2",
     "disclaimer1": "### Bei jeder Ausführung des Programs gilt zu bedenken, ",
     "disclaimer2": "dass mehrere hundert Anfragen an den Server gestellt werde können. ###",
+    "saved_links_avail": "Der eingegebene Suchbegriff wurde schon einmal eingegeben. Es liegen daher bereits "
+                         "gespeicherte Links zu dieser Anfrage vor. Sollen diese verwendet werden[YES], oder sollen "
+                         "aktuelle Links abgefragt werden[NO]?\n Das verwenden abgespeicherter Links ist "
+                         "zeit- und bandbreitesparend, die Links sind jedoch nicht aktuell.",
+    "saved_postings_avail": "Der eingegebene Suchbegriff wurde schon einmal eingegeben. Es liegen bereits "
+                         "geparste Postings zu dieser Anfrage vor. Sollen diese verwendet werden[YES], oder sollen "
+                         "die Postings neu geparst werden[NO]?\n Das verwenden abgespeicherter Postings ist "
+                         "(sehr) zeit- und bandbreitesparend. Das Programm springt bei [YES] direkt in die Analyse.",
 }
 
 
@@ -41,7 +51,7 @@ class MainForm(np.SplitForm):
         self.options: np.TitleMultiSelect = self.add(np.TitleMultiSelect, scroll_exit=True, editable=True,
                                                      max_height=4, name='Optionen',
                                                      values=['Links Abrufen', 'Postings Abrufen', 'Analyse'],
-                                                     value=[0,1])
+                                                     value=[0, 1])
 
         self.nextrely += 4
         self.disclaimer1: np.FixedText = self.add(np.FixedText, value=menutext.get("disclaimer1"), color="STANDOUT",
@@ -49,8 +59,8 @@ class MainForm(np.SplitForm):
         self.disclaimer2: np.FixedText = self.add(np.FixedText, value=menutext.get("disclaimer2"), color="STANDOUT",
                                                   name='disclaimer2')
 
-    def afterEditing(self):
-        # all_checked = [False, False, False, False, False]
+        # todo: User Input is not sanatized
+        # all_checked = [False, False, False]
         #
         # if not self.check_inputs("term") and not all_checked[0]:
         #     np.notify_confirm("Suchfeld fehler", "Fehler", editw=1)
@@ -66,14 +76,19 @@ class MainForm(np.SplitForm):
         #     np.notify_confirm("Reihenfolge Optionen falsch", "Fehler", editw=1)
         # else:
         #     all_checked[2] = True
+
+    def afterEditing(self):
+
         self.parentApp.search_term = self.search_term.value
         self.parentApp.picked_options = self.options.value
 
         if self.check_inputs("links"):
-            self.parentApp.use_stored_links: bool = np.notify_yes_no("Saved links avail", "Achtung!", editw=1)
+            self.parentApp.use_stored_links: bool = np.notify_yes_no(menutext.get("saved_links_avail"),
+                                                                     "Achtung!", editw=1)
 
         if self.check_inputs("postings"):
-            self.parentApp.use_stored_postings: bool = np.notify_yes_no("Saved Postings avail", "Achtung!", editw=1)
+            self.parentApp.use_stored_postings: bool = np.notify_yes_no(menutext.get("saved_postings_avail"),
+                                                                        "Achtung!", editw=1)
 
         self.parentApp.setNextForm('Progress')
 
@@ -149,9 +164,52 @@ class ProgressForm(np.Form):
         finished_thread = threading.Thread(target=self.finished_message)
         finished_thread.start()
 
+        self.progrss_kill_flag = False
+        self.progress_stream_thread: threading.Thread = threading.Thread(target=self.progress_stream)
+        self.progress_stream_thread.setDaemon(True)
+        self.progress_stream_thread.start()
+
         managing_thread: threading.Thread = threading.Thread(target=self.manage_threads)
         managing_thread.setDaemon(True)
         managing_thread.start()
+
+    def afterEditing(self):
+        self.parentApp.setNextForm(None)
+
+    def progress_stream(self):
+        progress_stream = StringIO()
+        request_stream = StringIO()
+
+        root = logging.getLogger()
+        progress_handler = logging.StreamHandler(progress_stream)
+        request_handler = logging.StreamHandler(request_stream)
+
+        progress_handler.setLevel(logging.INFO)
+        request_handler.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter('%(message)s')
+        progress_handler.setFormatter(formatter)
+        request_handler.setFormatter(formatter)
+
+        root.addHandler(progress_handler)
+        root.addHandler(request_handler)
+
+        self.progress_line = self.add(np.FixedText, color="CONTROL", value="")
+        self.requests_line = self.add(np.Textfield, color="CONTROL", value="")
+        while not self.progrss_kill_flag:
+            time.sleep(0.2)
+            self.progress_line.value = progress_stream.getvalue()[:19]
+            self.requests_line.value = request_stream.getvalue()
+
+            self.progress_line.update()
+            self.requests_line.update()
+
+            progress_stream.seek(0)
+            request_stream.seek(0)
+        progress_stream.close()
+        request_stream.close()
+        progress_handler.close()
+        request_handler.close()
 
     def finished_message(self):
         while not self.blink_kill_flag:
@@ -165,6 +223,7 @@ class ProgressForm(np.Form):
         while self.crawling_thread.isAlive():
             time.sleep(1)
         self.blink_kill_flag = True
+        self.progrss_kill_flag = True
 
     def blink(self):
         while not self.blink_kill_flag:

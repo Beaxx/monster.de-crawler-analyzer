@@ -61,6 +61,7 @@ class LogRecordSocketReceiver(socketserver.ThreadingTCPServer):
                 self.handle_request()
             abort = self.abort
 
+
 def main():
     logging.basicConfig(
         format='%(relativeCreated)5d %(name)-15s %(levelname)-8s %(message)s')

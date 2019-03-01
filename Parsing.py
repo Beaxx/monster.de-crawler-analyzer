@@ -170,10 +170,6 @@ class PostingParser:
             return self.parse_posting_from_html(soup)
 
     @staticmethod
-    def parsing_coverage(job_listing_count: int, link_count: int) -> str:
-        return "Parsing coverage: {0}%".format(round(job_listing_count / link_count * 100, 2))
-
-    @staticmethod
     def parse_posting_from_json(json_string: str) -> dict:
         try:
             return json.loads(json_string)
