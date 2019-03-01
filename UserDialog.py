@@ -33,7 +33,7 @@ class App(np.NPSAppManaged):
         self.addForm('Progress', ProgressForm, name=menutext.get("title"))
         self.init_logger()
 
-    # Debugging via log_listener
+    # Debugging via log_listener.py (has to be started seperately
     def init_logger(self):
         self.rootLogger = logging.getLogger('')
         self.rootLogger.setLevel(logging.DEBUG)
@@ -168,6 +168,7 @@ class ProgressForm(np.Form):
         self.progress_stream_thread.setDaemon(True)
         self.progress_stream_thread.start()
 
+        # Manage thread termination
         managing_thread: threading.Thread = threading.Thread(target=self.manage_threads)
         managing_thread.setDaemon(True)
         managing_thread.start()

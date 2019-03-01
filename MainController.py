@@ -1,6 +1,7 @@
 from RequestManager import RequestManager
 from Parsing import PostingLinkParser, PostingParser
 from FileHandler import FileHandler
+from Analyzer import Analyzer
 import time
 import logging
 
@@ -51,8 +52,11 @@ class MainController:
             self.file_handler.print_postings_to_file(self.job_postings)
             # print((self.posting_parser.parsing_coverage(len(self.job_postings), len(self.deep_links))))
 
-        # if 1 in options and 2 in options:
-        #     pass # Analyse to implement
+        if 1 in options and 2 in options:
+            analyzer = Analyzer()
+            analyzer.build_index(self.job_postings)
+            analyzer.print_index()
 
-# controller = MainController()
-# controller.run_wih_flags("digital change management", [0, 1], use_stored_links=False, use_stored_postings=False)
+
+controller = MainController()
+controller.run_wih_flags("digital innovation manage", [0, 1, 2], use_stored_links=True, use_stored_postings=True)

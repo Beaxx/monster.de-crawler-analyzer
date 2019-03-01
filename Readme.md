@@ -3,10 +3,11 @@ Monster.de Crawler & Analyzer
 
 Dependencie
 ---
-* requests
-* lxml
-* beautifulsoup 4
-* npyscreen
+* requests (Handling Requests to Server)
+* lxml (Parsing HTML)
+* beautifulsoup 4 (Parsing HTML)
+* npyscreen (Console based UI)
+* whoosh (Information Retrieval)
 
 Features
 ---
