@@ -5,7 +5,6 @@ import definitions
 import logging.handlers
 import time
 import threading
-import sys
 
 menutext = {
     "title": "Monster.de Crawler V0.2",
@@ -146,13 +145,13 @@ class ProgressForm(np.Form):
                                                  value=definitions.SKRIPT_PATH + "\\Postings")
 
     def beforeEditing(self):
-        self.crawling_thread: threading.Thread = threading.Thread(target=self.parentApp.controller.run_wih_flags,
-                                                                  args=(self.parentApp.search_term,
+        self.main_thread: threading.Thread = threading.Thread(target=self.parentApp.controller.run_wih_flags,
+                                                              args=(self.parentApp.search_term,
                                                                         sorted(self.parentApp.picked_options),
                                                                         self.parentApp.use_stored_links,
                                                                         self.parentApp.use_stored_postings))
-        self.crawling_thread.setDaemon(True)
-        self.crawling_thread.start()
+        self.main_thread.setDaemon(True)
+        self.main_thread.start()
         self.nextrely += 5
         self.progress_notify = self.add(np.FixedText, relx=50, color='DANGER', value="Vorgang läuft...")
 
@@ -220,7 +219,7 @@ class ProgressForm(np.Form):
         self.progress_notify.update()
 
     def manage_threads(self):
-        while self.crawling_thread.isAlive():
+        while self.main_thread.isAlive():
             time.sleep(1)
         self.blink_kill_flag = True
         self.progrss_kill_flag = True
