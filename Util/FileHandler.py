@@ -20,7 +20,7 @@ class FileHandler:
     @staticmethod
     def deep_link_file_is_available(search_term) -> bool:
         try:
-            folder_path = os.path.join(defi.SKRIPT_PATH, "Links")
+            folder_path = os.path.join(defi.MAIN_PATH, "Links")
             f = open(os.path.join(folder_path, search_term + ".txt"), "r")
             f.close()
             return True
@@ -28,7 +28,7 @@ class FileHandler:
             return False
 
     def print_links_to_file(self, file_name: str, links: list):
-        folder_path = os.path.join(defi.SKRIPT_PATH, "Links")
+        folder_path = os.path.join(defi.MAIN_PATH, "Links")
         self.if_folder_not_existent_create(folder_path)
 
         with open(os.path.join(folder_path, file_name + ".txt"), "w+", encoding='utf-8') as f:
@@ -36,7 +36,7 @@ class FileHandler:
                 f.write(link + "\n")
 
     def read_job_posting_deep_links_from_file(self, search_term: str) -> list:
-        folder_path = os.path.join(defi.SKRIPT_PATH, "Links")
+        folder_path = os.path.join(defi.MAIN_PATH, "Links")
         self.if_folder_not_existent_create(folder_path)
 
         with open(os.path.join(folder_path, search_term + ".txt"), 'r', encoding='utf-8') as f:
@@ -47,7 +47,7 @@ class FileHandler:
     @staticmethod
     def pickled_posting_file_is_availabe(search_term) -> bool:
         try:
-            folder_path = os.path.join(defi.SKRIPT_PATH, "Storage")
+            folder_path = os.path.join(defi.MAIN_PATH, "Storage")
             f = open(os.path.join(folder_path, search_term + ".pcl"), "r")
             f.close()
             return True
@@ -55,20 +55,20 @@ class FileHandler:
             return False
 
     def pickle_postings_to_file(self, search_term: str, job_postings: list):
-        folder_path = os.path.join(defi.SKRIPT_PATH, "Storage")
+        folder_path = os.path.join(defi.MAIN_PATH, "Storage")
         self.if_folder_not_existent_create(folder_path)
 
         with open(os.path.join(folder_path, search_term + ".pcl"), "wb+") as f:
             pickle.dump(job_postings, f)
 
     def unpickle_postings(self, search_term: str) -> list:
-        folder_path = os.path.join(defi.SKRIPT_PATH, "Storage")
+        folder_path = os.path.join(defi.MAIN_PATH, "Storage")
         self.if_folder_not_existent_create(folder_path)
 
         with open(os.path.join(folder_path, search_term + ".pcl"), "rb") as f:
             return pickle.load(f)
 
-    def print_postings_to_file(self, job_postings: list):
+    def print_postings_to_file(self, search_term: str, job_postings: list):
         def strip_file_name(job_posting: Posting):
             try:
                 return re.sub(r'\W', "", job_posting.title)[:40]
@@ -76,7 +76,7 @@ class FileHandler:
                 md5 = hashlib.md5(job_posting)
                 return "unknown" + str(md5[:20])  # Adding part of hash to avoid name collision
 
-        folder_path = os.path.join(defi.SKRIPT_PATH, "Postings")
+        folder_path = os.path.join(defi.MAIN_PATH, "Postings", search_term)
         self.if_folder_not_existent_create(folder_path)
         for posting in job_postings:
             with open(os.path.join(folder_path, strip_file_name(posting) + ".txt"),

@@ -1,7 +1,7 @@
-from RequestManager import RequestManager
+from Util.RequestManager import RequestManager
 from Parsing import PostingLinkParser, PostingParser
-from FileHandler import FileHandler
-from Analyzer import Analyzer
+from Util.FileHandler import FileHandler
+from Indexing.Indexer import Indexer
 import time
 import logging
 
@@ -14,6 +14,7 @@ class MainController:
         self.deep_links: list = None
         self.job_postings: list = list()
         self.search_term: str = None
+        self.analyzer: Indexer = None
 
     def set_job_postings(self):
         count = 0
@@ -45,18 +46,26 @@ class MainController:
 
         if 1 in options and use_stored_postings:
             self.job_postings = self.file_handler.unpickle_postings(self.search_term)
-            self.file_handler.print_postings_to_file(self.job_postings)
+            self.file_handler.print_postings_to_file(self.search_term, self.job_postings)
         elif 1 in options and not use_stored_postings:
             self.set_job_postings()
             self.file_handler.pickle_postings_to_file(self.search_term, self.job_postings)
-            self.file_handler.print_postings_to_file(self.job_postings)
-            # print((self.posting_parser.parsing_coverage(len(self.job_postings), len(self.deep_links))))
+            self.file_handler.print_postings_to_file(self.search_term, self.job_postings)
 
         if 1 in options and 2 in options:
-            analyzer = Analyzer()
-            analyzer.build_index(self.job_postings)
-            analyzer.print_index()
+            self.analyzer = Indexer(self.search_term)
+            if not use_stored_postings:
+                self.analyzer.build_index(self.job_postings)
+                # self.analyzer.tokenize()
+            else:
+                try:
+                    self.analyzer.open_index()
+                except FileNotFoundError:
+                    self.analyzer.build_index(self.job_postings)
+
+            # self.analyzer.print_paragraph_headings_for_all_docs()  # Debug
+            # self.analyzer.print_index_info()  # Debug
 
 
 controller = MainController()
-controller.run_wih_flags("digital innovation manage", [0, 1, 2], use_stored_links=True, use_stored_postings=True)
+controller.run_wih_flags("digital change management", [0, 1, 2], use_stored_links=True, use_stored_postings=True)

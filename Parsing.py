@@ -1,4 +1,4 @@
-from RequestManager import RequestManager
+from Util.RequestManager import RequestManager
 import definitions
 from requests import Response
 import re
@@ -77,11 +77,11 @@ class Posting:
         self.organization: str = None
         self.date_posted: datetime.date = None
         self.educational_requirements: str = None
-        self.industry: list = list()
+        self.industry: str = None
         self.empolyment_type: str = None
         self.location: list = [0, 0]
         self.experience_requirements: str = None
-        self.skills: list = None
+        self.skills: str = None
         self.posting_text: dict = None
 
     def __str__(self):
@@ -101,16 +101,16 @@ class Posting:
                "Berufserhfarung: {7}\n" \
                "Skills: {8}\n" \
                "Anzeigentext:\n {9}\n".format(
-            self.url,
-            self.title,
-            self.organization,
-            self.date_posted,
-            self.educational_requirements,
-            self.industry,
-            self.empolyment_type,
-            self.experience_requirements,
-            self.skills,
-            posting_text_strngbuilder())
+                    self.url,
+                    self.title,
+                    self.organization,
+                    self.date_posted,
+                    self.educational_requirements,
+                    self.industry,
+                    self.empolyment_type,
+                    self.experience_requirements,
+                    self.skills,
+                    posting_text_strngbuilder())
 
 
 class PostingParser:
@@ -120,22 +120,22 @@ class PostingParser:
 
         if len(posting_data) > 0:
             if posting_data.get("url") is not None:
-                posting.url = posting_data.get("url")
+                posting.url = posting_data.get("url").lower()
 
             if posting_data.get("title") is not None:
-                posting.title = posting_data.get("title")
+                posting.title = posting_data.get("title").lower()
 
             if posting_data.get("datePosted") is not None:
                 posting.date_posted = datetime.strptime(posting_data.get("datePosted"), "%Y-%M-%d").date()
 
             if posting_data.get("educationRequirements") is not None:
-                posting.educational_requirements = posting_data.get("educationRequirements")
+                posting.educational_requirements = posting_data.get("educationRequirements").lower()
 
             if posting_data.get("industry") is not None:
-                posting.industry = [x for x in posting_data.get("industry")]
+                posting.industry = ",".join(posting_data.get("industry")).replace("/", " ").lower()
 
             if posting_data.get("employmentType") is not None:
-                posting.empolyment_type = [x for x in posting_data.get("employmentType")]
+                posting.empolyment_type = ",".join(posting_data.get("employmentType")).lower()
 
             if posting_data.get("jobLocation") is not None and posting_data.get("jobLocation")[0].get(
                     "geo") is not None:
@@ -144,13 +144,13 @@ class PostingParser:
 
             if posting_data.get("hiringOrganization") is not None and posting_data.get(
                     "hiringOrganization").get("name") is not None:
-                posting.organization = posting_data.get("hiringOrganization").get("name")
+                posting.organization = posting_data.get("hiringOrganization").get("name").lower()
 
             if posting_data.get("experienceRequirements") is not None:
-                posting.experience_requirements = posting_data.get("experienceRequirements")
+                posting.experience_requirements = posting_data.get("experienceRequirements").lower()
 
             if posting_data.get("skills") is not None:
-                posting.skills = self.__parse_skills(posting_data.get("skills"))
+                posting.skills = posting_data.get("skills").lower()
 
             if posting_data.get("description") is not None:
                 posting.posting_text = self.__parse_description(posting_data.get("description"))
@@ -185,14 +185,6 @@ class PostingParser:
             return dict()
 
     @staticmethod
-    def __parse_skills(skills: str) -> list:
-        skill_list = skills.split(",")
-        out = list()
-        for x in skill_list:
-            out.append(x.strip())
-        return out
-
-    @staticmethod
     def __parse_description(description: str) -> dict:
         description_partially_stripped = re.sub(
             r'<[^h1-9].*?[^1-9]>', '', description).replace('\n', '').replace(r"<p>",
@@ -206,7 +198,7 @@ class PostingParser:
 
         output = dict()
         for block in headings:
-            block_content = str(block.nextSibling).strip().replace("\n", "").replace("\r", "")
-            if block_content != "":
-                output[block.text.strip()] = block_content
+            block_content = str(block.nextSibling).strip().replace("\n", "").replace("\r", "").lower()
+            if block_content is not None and block_content != "" and block_content != "none":
+                output[block.text.strip().lower()] = block_content.lower()
         return output

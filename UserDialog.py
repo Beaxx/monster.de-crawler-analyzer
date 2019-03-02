@@ -139,10 +139,10 @@ class ProgressForm(np.Form):
         self.fixed_text: np.FixedText = self.add(np.FixedText, relx=55, value="PROGRESS")
 
         self.links_text: np.TitleText = self.add(np.TitleText, name="Speicherort Links:",
-                                                 value=definitions.SKRIPT_PATH + "\\Links")
+                                                 value=definitions.MAIN_PATH + "\\Links")
         self.nextrely += 2
         self.links_text: np.TitleText = self.add(np.TitleText, name="Speicherort Postings:",
-                                                 value=definitions.SKRIPT_PATH + "\\Postings")
+                                                 value=definitions.MAIN_PATH + "\\Postings")
 
     def beforeEditing(self):
         self.main_thread: threading.Thread = threading.Thread(target=self.parentApp.controller.run_wih_flags,
