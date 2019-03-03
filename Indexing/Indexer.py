@@ -4,14 +4,19 @@ from whoosh.writing import IndexWriter
 from whoosh.index import open_dir
 from whoosh.query import Every
 from whoosh import index
+import whoosh.fields
 import definitions
 import os.path
 from Util.FileHandler import FileHandler
 import logging
+from whoosh.analysis import analyzers
+from Indexing.Analyzing import HeadingAnalyzer, TextAnalyzer, SkillAnalyzer, RegexTokenizer
+import regex as re
 
 
 class Indexer:
     def __init__(self, search_term: str):
+
         self.schema = Schema(
             # todo add Boosters to fields?
             educational_requirements=TEXT(),
@@ -28,8 +33,8 @@ class Indexer:
             type=ID(stored=True),
             parent=NUMERIC(),
             paragraph_number=NUMERIC(stored=True),
-            paragraph_heading=TEXT(stored=True),
-            paragraph_content=TEXT(stored=True),
+            paragraph_heading=TEXT(analyzer=TextAnalyzer(), stored=True),
+            paragraph_content=TEXT(analyzer=TextAnalyzer(), stored=True)
         )
 
         self.index_path: str = os.path.join(definitions.MAIN_PATH, "Storage", "Indexe", search_term)
@@ -76,6 +81,7 @@ class Indexer:
                 print("Title: " + hit["title"])
                 for child in s.documents(parent=hit["parent_identifier"]):
                     print("\t" + str(child["paragraph_heading"]))
+                    print("\t" + str(child["paragraph_content"]))
 
     def print_index_info(self):
         self.ix = index.open_dir(self.index_path)
@@ -90,4 +96,16 @@ class Indexer:
             for hit in s.search(Every("parent"), limit=None):
                 paragraph_count += 1
         print(
-            "On Average every Document contains {0} Paragraphs".format(round(paragraph_count/doc_count, 2)))
+            "On Average every Document contains {0} Paragraphs".format(round(paragraph_count / doc_count, 2)))
+
+    def print_all_tokens(self):
+        self.ix = index.open_dir(self.index_path)
+        with self.ix.reader() as r:
+            print("Heading Tokens")
+            print(list(r.lexicon("paragraph_heading")))
+
+            print("\n\nContent Tokens")
+            print(list(r.lexicon("paragraph_content")))
+
+            print("\n\n Skill Tokens")
+            print(list(r.lexicon("skills")))

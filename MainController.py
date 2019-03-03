@@ -63,6 +63,7 @@ class MainController:
                 except FileNotFoundError:
                     self.analyzer.build_index(self.job_postings)
 
+            self.analyzer.print_all_tokens()
             # self.analyzer.print_paragraph_headings_for_all_docs()  # Debug
             # self.analyzer.print_index_info()  # Debug
 
