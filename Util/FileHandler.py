@@ -71,7 +71,7 @@ class FileHandler:
     def print_postings_to_file(self, search_term: str, job_postings: list):
         def strip_file_name(job_posting: Posting):
             try:
-                return re.sub(r'\W', "", job_posting.title)[:40]
+                return re.sub(r'\W', "", job_posting.title)[:20] + str(hash(job_posting))
             except TypeError:
                 md5 = hashlib.md5(job_posting)
                 return "unknown" + str(md5[:20])  # Adding part of hash to avoid name collision

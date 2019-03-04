@@ -10,7 +10,7 @@ import os.path
 from Util.FileHandler import FileHandler
 import logging
 from whoosh.analysis import analyzers
-from Indexing.Analyzing import HeadingAnalyzer, TextAnalyzer, SkillAnalyzer, RegexTokenizer
+from Indexing import Analyzing
 import regex as re
 
 
@@ -33,8 +33,8 @@ class Indexer:
             type=ID(stored=True),
             parent=NUMERIC(),
             paragraph_number=NUMERIC(stored=True),
-            paragraph_heading=TEXT(analyzer=TextAnalyzer(), stored=True),
-            paragraph_content=TEXT(analyzer=TextAnalyzer(), stored=True)
+            paragraph_heading=TEXT(analyzer=Analyzing.ImprovedTokenizer(), stored=True),
+            paragraph_content=TEXT(analyzer=Analyzing.ImprovedTokenizer(), stored=True)
         )
 
         self.index_path: str = os.path.join(definitions.MAIN_PATH, "Storage", "Indexe", search_term)

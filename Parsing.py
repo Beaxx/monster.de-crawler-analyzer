@@ -1,7 +1,8 @@
 from Util.RequestManager import RequestManager
 import definitions
 from requests import Response
-import re
+from regex import regex as re
+from lxml.etree import tostring as etree_tostring
 import math
 from lxml import html
 from lxml.html import HtmlElement
@@ -9,14 +10,31 @@ import time
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup as Bs
+from urllib.parse import unquote
+import hashlib
 
 
 class PostingLinkParser:
+    """
+    Suche nach Links zu Job-Anzeigen
+    """
+
     def __init__(self):
         self.number_of_job_postings = None
         self.links = list()
+        self.job_ids = set()
 
     def run(self, search_term: str) -> list:
+        """
+        Iteriert über alle Ergebnisseiten für einen Suchbegriff
+
+        Limitation: Monster.de gibt nicht mehr als 1000 Suchergebnisse zurück. Für Anfragen, die mehr als 1000
+                    Ergebnisse liefern, können nur die ersten 1000 Links abgerufen werden. Alle Anfragen jenseits der
+                    40sten Ergebnisseite resultieren in einem Serverfehler.
+
+        :param search_term: Suchbegriff
+        :return: Eine Liste der gefundenen Links zu Job-Postings
+        """
         # Initial Request
         response: Response = RequestManager.unauthenticated_request(self.build_url(search_term, 1, 1))
         self.number_of_job_postings = self.parse_number_of_jobs_found(response.text)
@@ -31,16 +49,35 @@ class PostingLinkParser:
         return self.links
 
     def __merge_links(self, links):
+        """
+        Fügt links nur dann der Objekt-liste hinzu, wenn ihre Job-Id noch nicht im job_id set vorhanden ist.
+        :param links: Liste an URLs als Strings
+        """
         for link in links:
-            if link not in self.links:
-                self.links.append(link)
+            try:
+                job_id = re.search(r"[[:xdigit:]-]{9,}", link).group()
+                if job_id not in self.job_ids:
+                    self.links.append(link)
+                    self.job_ids.add(job_id)
+            except TypeError:
+                pass
 
     @staticmethod
     def parse_html(page: Response) -> HtmlElement:
+        """
+        Parst den HTML-Text einer Seite
+        :param page: HTMl einer Seite in Bytes
+        :return: lxml HtmlElement
+        """
         return html.fromstring(page.content)
 
     @staticmethod
     def get_job_posting_links_from_dom(dom_tree: HtmlElement) -> list:
+        """
+        Extrahiert Links für Job Postings aus Ergebnisseite
+        :param dom_tree: Ergebnisseite als lxml Element
+        :return: Liste aus Links
+        """
         links = list()
         postings = dom_tree.xpath(r"//section[@data-jobid][not(./p[@class='entry'])]")
         for posting in postings:
@@ -49,28 +86,61 @@ class PostingLinkParser:
 
     @staticmethod
     def build_url(search_term: str, start_page: int, current_page: int) -> str:
+        """
+        URL-Builder für Ergebnisseiten
+        :param search_term: Suchterm
+        :param start_page: Ergebnisseitenindex, von der an die Angebote angezeigt werden sollen
+        :param current_page: Ergebnisseitenindex der aktuellen Seite
+        :return: URL String
+        """
         base_url = definitions.BASE_URL
         return base_url + r"q={0}&stpage={1}&page={2}".format(search_term, start_page, current_page)
 
     @staticmethod
-    def convert_str_to_search_token(input_string: str) -> str:
-        return input_string.lower().replace(" ", "-")
-
-    @staticmethod
     def parse_number_of_jobs_found(input_html: str) -> int:
+        """
+        Im oberen Teil der Ergebnisseite wird angegeben, wie viele Postings für die Suchanfrage gefunden wurden.
+        Diese Information wird durch diese Funktion geparst.
+        :param input_html: HTML String der Ergebnisseite
+        :return: Anzahl der gefundenen Job Postings
+        """
         return int(re.search(r"(?<=\()[][0-9]{2,4}(?= Jobs gefunden\))", input_html).group())
 
     @staticmethod
     def calculate_request_arguments(number_of_job_postings: int) -> list:
+        """
+        Berechnet, wie viele Ergebnisseiten es auf Basis der gefundenen Jobs für die Anfrage gibt.
+        Pro Seite werden 25 Ergebnisse angezeigt. Der Seitenaufbau lässt es dabei zu die ersten 250 Ergebnisse auf
+        einer Seite anzuzeigen. Der initiale Index 'x' wird daher so gesetzt, dass möglichst viele Angebote im ersten
+        Request erreicht werden können. Ab Ergebnis 250 (Seite 10) werden nur noch 25 Ergebnisse pro Seite dargestellt,
+        weshalb spätestens von x=10 aus iterativ weiter gegeangen werden muss.
+
+        Requests, die eine Ergebnisseite > 40 aufrufen resultieren in einer 404 response. Auch wenn mehr Ergebnisse
+        verfügbar wären.
+
+        :param number_of_job_postings: Anzahl der Job Postings für die Suchanfrage
+        :return: Liste von Argumenten, mit denen die Requests durchgeführt werden sollen.
+        """
         arguments = list()
-        x = 1
-        while math.ceil(number_of_job_postings / 20) - x > 0:
+        x = math.floor(number_of_job_postings / 25)
+        if x > 10:
+            x = 10
+
+        while math.ceil(number_of_job_postings / 25) - x > 0:
             arguments.append(x)
             x += 1
+
+            if x == 40:
+                break
+        arguments.append(x)
         return arguments
 
 
 class Posting:
+    """
+    Ein Posting ist die geparste Repräsentation einer Job-Anzeige
+    """
+
     def __init__(self):
         self.url: str = None
         self.title: str = None
@@ -101,20 +171,38 @@ class Posting:
                "Berufserhfarung: {7}\n" \
                "Skills: {8}\n" \
                "Anzeigentext:\n {9}\n".format(
-                    self.url,
-                    self.title,
-                    self.organization,
-                    self.date_posted,
-                    self.educational_requirements,
-                    self.industry,
-                    self.empolyment_type,
-                    self.experience_requirements,
-                    self.skills,
-                    posting_text_strngbuilder())
+            self.url,
+            self.title,
+            self.organization,
+            self.date_posted,
+            self.educational_requirements,
+            self.industry,
+            self.empolyment_type,
+            self.experience_requirements,
+            self.skills,
+            posting_text_strngbuilder())
+
+    def __hash__(self):
+        return int(hashlib.md5(self.__repr__().encode('utf-8')).hexdigest(), 16)
 
 
 class PostingParser:
+    """
+    Ähnlich dem LinkParser ist der PostingParser für den Aufbau von Posting Repräsentationen aus den Jobanzeigen
+    verantwortlich.
+    """
+
     def build(self, response: Response) -> Posting:
+        """
+        Erstellt und befüllt ein Posting Objekt mit Informationen aus der Entsprechenden Seite
+        :param response: HTML code des postings in Bytes
+        :return: Ein Posting
+        """
+
+        # stringo = r"https://stellenangebot.monster.de/business-analyst-m-w-d-schnittstellen-workflow-systeme-frankfurt-am-main-hessen-de-deutsche-bank/204233860"
+        # if unquote(response.url) == stringo:
+        #     print()
+
         posting = Posting()
         posting_data: dict = self.parsing_controller(response.text)
 
@@ -158,6 +246,11 @@ class PostingParser:
         return posting
 
     def parsing_controller(self, html_txt: str):
+        """
+        Kontrollfunktion, die auf Basis der Form des HTMLs festlegt, wie die gegebene Job-Anzeige geparst werden soll.
+        :param html_txt: HTML der Seite als String
+        """
+
         soup: Bs = Bs(html_txt, 'lxml')
         match_json = soup.findAll("script", {"type": 'application/ld+json'})
         if len(match_json) == 1 and len(match_json[0].text) > 2000:
@@ -171,6 +264,11 @@ class PostingParser:
 
     @staticmethod
     def parse_posting_from_json(json_string: str) -> dict:
+        """
+        Parst JSON strings in Dictionarys
+        :param json_string: Eingabestring
+        :return: Diktionary
+        """
         try:
             return json.loads(json_string)
         except json.decoder.JSONDecodeError:
@@ -178,6 +276,11 @@ class PostingParser:
 
     @staticmethod
     def parse_posting_from_html(soup: Bs) -> dict:
+        """
+        Versucht Posting Text aus HTML zu gewinnen
+        :param soup: BS4 HTML Objekt
+        :return: Dictionary
+        """
         try:
             match_html = soup.find('div', {'class': re.compile(r'\Wmaincontent\W')})
             return {"description": match_html.text.replace(r'\r', "").replace(r'\n', "").replace(r'\t', "")}
@@ -186,19 +289,73 @@ class PostingParser:
 
     @staticmethod
     def __parse_description(description: str) -> dict:
-        description_partially_stripped = re.sub(
-            r'<[^h1-9].*?[^1-9]>', '', description).replace('\n', '').replace(r"<p>",
-                                                                              "")  # Strips all Tags except h1-h6
-        description_reduced_returns = re.sub(
-            r'[\r\n\0\s]*(?=[\r\n\0])|(?<=>)[\r\n\0\s]|(?=\s)[\r\n\0\s]{2,}', '',
-            # Strip carriage returns and new lines
-            description_partially_stripped)  # Strips /r and /n
+        """
+        Interpretiert HTML Text und versucht dabei Absätze und Überschriften zu identifizieren.
+        :param description: Job Description als HTML
+        :return: Dictionary der Form {Absatzüberschrift: Absatztext}
+        """
+        description_parsed: HtmlElement = html.fromstring(description.strip().replace("\r", "").replace("\n", ""))
+        #  Search for all heading indicating tags
 
-        headings: Bs = Bs(description_reduced_returns, "lxml").find_all(['h{0}'.format(int(x)) for x in range(1, 7)])
+        # Search by lists (ul, li)
+        headings: HtmlElement = description_parsed.xpath(
+            r"//*[self::strong or self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6]"
+            r"[string-length(text()) > 3]")
+
+        # Search by css tags
+        if len(headings) == 0:
+            headings = description_parsed.xpath(r"//*[contains(@style, 'font-weight')][string-length(text()) > 3]")
+
+        try:
+            contents = headings[0].xpath(r"//*[string-length(text()) > 3]")
+        except IndexError:
+            fallback_output = dict()
+            contents = description_parsed.xpath("//*[string-length(text()) > 20]")
+            for i, p in enumerate(contents):
+                fallback_output[i] = p.text
+            return fallback_output
+
+        if len(headings) == 0 or len(contents) == 0:
+            print()
+
+        # Try parsing css
+        if not contents:
+            r"//*[contains(@style, 'font-weight')][string-length(text()) > 4]"
+
+        paragraphs = list()
+        for i, heading in enumerate(headings):
+            paragraphs.append(list())
+
+            content_begins_flag = False
+            is_last_heading = False
+            for line in contents:
+                try:
+                    if not is_last_heading:
+                        if line.text == headings[i + 1].text:
+                            break
+                except IndexError:
+                    is_last_heading = True
+
+                if line.text == heading.text:
+                    paragraphs[i].append(heading.text)
+                    content_begins_flag = True
+                    continue
+                if content_begins_flag == True:
+                    paragraphs[i].append(line.text)
+
+        paragraphs.sort(key=len, reverse=True)  # Puts lists that are empty to the end
 
         output = dict()
-        for block in headings:
-            block_content = str(block.nextSibling).strip().replace("\n", "").replace("\r", "").lower()
-            if block_content is not None and block_content != "" and block_content != "none":
-                output[block.text.strip().lower()] = block_content.lower()
+        for i, paragraph in enumerate(paragraphs):
+            try:
+                p_sanatized = [x for x in paragraph if x is not None]
+
+                if len(paragraph) > 0:
+                    if len(max(p_sanatized, key=len)) > 20:
+                        paragraph_content = " ".join(p_sanatized[1:])
+                        output[p_sanatized[0]] = paragraph_content.lower()
+                    else:
+                        continue
+            except (IndexError, TypeError):
+                break
         return output
