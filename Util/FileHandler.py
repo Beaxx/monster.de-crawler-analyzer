@@ -4,7 +4,7 @@ import pickle
 import re
 import hashlib
 from Parsing import Posting
-
+import shutil
 
 class FileHandler:
     def __init__(self):
@@ -77,6 +77,8 @@ class FileHandler:
                 return "unknown" + str(md5)  # Adding part of hash to avoid name collision
 
         folder_path = os.path.join(defi.MAIN_PATH, "Postings", search_term)
+        shutil.rmtree(folder_path, ignore_errors=True)
+
         self.if_folder_not_existent_create(folder_path)
         for posting in job_postings:
             with open(os.path.join(folder_path, strip_file_name(posting) + ".txt"),

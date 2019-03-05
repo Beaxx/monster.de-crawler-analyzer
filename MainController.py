@@ -6,7 +6,7 @@ from Indexing.Indexer import Indexer
 from whoosh.index import Index
 import time
 import logging
-
+import pprint
 
 class MainController:
     def __init__(self):
@@ -70,11 +70,11 @@ class MainController:
 
             self.analyzer = Analyzer(self.search_term, self.indexer)
             # print(self.analyzer.skill_frquency_in_index())
-            print(self.analyzer.task_frequency_in_index())
+            pprint.pprint(self.analyzer.task_frequency_in_index())
 
             # self.indexer.print_all_tokens()  # Debug
             # self.indexer.print_paragraph_headings_for_all_docs()  # Debug
-            self.indexer.print_index_info()  # Debug
+            # self.indexer.print_index_info()  # Debug
 
 
 controller = MainController()

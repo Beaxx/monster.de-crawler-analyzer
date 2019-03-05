@@ -5,6 +5,7 @@ from whoosh.analysis import tokenizers, analyzers
 from whoosh.analysis import LowercaseFilter, StopFilter, StemFilter
 from whoosh.query import Query
 from whoosh.query import Every
+from whoosh.searching import Results
 from whoosh import qparser
 from whoosh.index import Index
 from Indexing.Indexer import Indexer
@@ -43,6 +44,10 @@ class Analyzer:
         with self.ix.reader() as r:
             return (r.most_frequent_terms("skills", 20))
 
+    def word_filter(self, word):
+        if word != "None" and word not in STOP_WORDS and len(word) > 5:
+            return word
+
     def task_frequency_in_index(self) -> list:
         task_search_string = \
              "alltag arbeitsgebiet~ are (aufgabe~ aufgabenbereich~ aufgabenbeschreibung aufgabenfeld " \
@@ -52,24 +57,43 @@ class Analyzer:
              "(task~/4)^3 themengebiet~2/12 tun umfasst unterstützen (verantwortlichkeit~2/18 verantwortung~2/13)^2" \
              "wirkungsfeld work workspace you~2/3"
 
-        or_group = qparser.OrGroup.factory(0.9)
+        or_group = qparser.OrGroup.factory(1)
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
 
-        with self.ix.searcher() as r:
-            for hit in r.search(parser.parse(task_search_string), limit=None):
-                print(hit["paragraph_heading"])
+        # Search Paragraph headings for task indicating terms
+        with self.ix.searcher() as heading_searcher:
+            result_docs = heading_searcher.search(parser.parse(task_search_string), limit=None)
 
-            # headings_query = qparser.QueryParser()
+            terms = dict()
+            for doc in result_docs:
+                content = doc["paragraph_content"]
+                for word in content.split(" "):
+                    word_filtered = self.word_filter(word)
+                    if word_filtered in terms:
+                        terms[word_filtered] += 1
+                    else:
+                        terms[word_filtered] = 1
+            sorted_by_value = sorted(terms.items(), key=lambda kv: kv[1], reverse=True)
+            return [(x[0], x[1]) for x in sorted_by_value[:100]]
 
-            # frequenz von termen in den dazugehörigen content blocks
+        # with result_docs.reader() as content_searcher:
+        #     return content_searcher.most_frequent_terms("paragraph_content", 50)
 
+        # frequenz von termen in den dazugehörigen content blocks
+
+    def benefits_frequency_in_index(self) -> list:
         benefits_search_string = \
             "angebot are attraktiv (bekommen bekommst benefit~ bieten)^2 bringen~2/5 dein~ dich dir^1.5 freuen" \
             "geboten^1.5 ihnen ihr~ erwarten kannst konditionen leistungen mehrwert mein mitarbeitervorteile^3 " \
             "offer our^1.5 perks^2 salary sie ticken uns unser~/4 unternehmensprofil (vorteil~/7)^2 wir worauf freuen" \
             "you~2/3 zusatzleistungen^2 zusätzliche"
 
+        or_group = qparser.OrGroup.factory(1)
+        parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
+        parser.add_plugin(qparser.FuzzyTermPlugin())
+
+    def requirements_frequency_in_index(self) -> list:
         requirements_search_string = \
             "(anforderung~2/5 anforderungsprofil)^2 anwenderkenntnisse~ are ausmacht auszeichnet background " \
             "bedingungen berufserfahrung~2 bietest bist bringen~2/5 dein du (einstellungsvoraussetzungen~2/25)^3 " \
@@ -79,3 +103,7 @@ class Analyzer:
             "(qualifications~2/13 qualifikation~2/13)^2 reference required requirements^2 sich skills^3 sollten" \
             "solltest steckbrief (stellenanforderung~2/18)^2 talent ticken (voraussetzung~2/13 vorkenntniss~2/12)^2" \
             "wonach worauf you~2/3 zusätzliche"
+
+        or_group = qparser.OrGroup.factory(1)
+        parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
+        parser.add_plugin(qparser.FuzzyTermPlugin())

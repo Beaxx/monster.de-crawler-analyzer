@@ -61,13 +61,12 @@ class Indexer:
             )
 
             for j, paragraph in enumerate(posting.posting_text.keys()):
-                    writer.add_document(parent=i,
-                                   paragraph_number=j,
-                                   paragraph_heading=paragraph,
-                                   paragraph_content=posting.posting_text.get(paragraph))
+                writer.add_document(parent=i,
+                                    paragraph_number=j,
+                                    paragraph_heading=paragraph,
+                                    paragraph_content=posting.posting_text.get(paragraph))
             writer.commit()
         self.ix.writer().commit(optimize=True)
-
 
     def open_index(self):
         try:
