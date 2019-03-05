@@ -12,6 +12,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup as Bs
 from urllib.parse import unquote
 import hashlib
+import logging
 
 
 class PostingLinkParser:
@@ -39,12 +40,14 @@ class PostingLinkParser:
         response: Response = RequestManager.unauthenticated_request(self.build_url(search_term, 1, 1))
         self.number_of_job_postings = self.parse_number_of_jobs_found(response.text)
 
-        for i in self.calculate_request_arguments(self.number_of_job_postings):
-            response: Response = RequestManager.unauthenticated_request(self.build_url(search_term, 1, i))
+        for ind, item in enumerate(self.calculate_request_arguments(self.number_of_job_postings)):
+            response: Response = RequestManager.unauthenticated_request(self.build_url(search_term, 1, item))
             dom_tree: html = self.parse_html(response)
             links = self.get_job_posting_links_from_dom(dom_tree)
             self.__merge_links(links)
 
+            logging.info("Link Gathering Fortschritt {0}%".format(
+                round(ind / self.number_of_job_postings * 100, 2)))
             time.sleep(0.1)  # Politeness
         return self.links
 

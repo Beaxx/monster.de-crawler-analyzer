@@ -6,7 +6,9 @@ from Indexing.Indexer import Indexer
 from whoosh.index import Index
 import time
 import logging
+import os
 import pprint
+
 
 class MainController:
     def __init__(self):
@@ -17,6 +19,7 @@ class MainController:
         self.job_postings: list = list()
         self.search_term: str = None
         self.indexer: Indexer = None
+        self.analyzer = None
 
     def set_job_postings(self):
         count = 0
@@ -32,13 +35,9 @@ class MainController:
                     controll_hashset.add(posting_hash)
             count += 1
             logging.info(self.parsing_progress(count))
-        logging.info(self.parsing_coverage())
 
     def parsing_progress(self, count: int) -> str:
-        return "Fortschritt: {0}%".format(round(count / len(self.deep_links) * 100, 2))
-
-    def parsing_coverage(self) -> str:
-        return "Parsing coverage: {0}%".format(round(len(self.job_postings) / len(self.deep_links) * 100, 2))
+        return "Posting Parsing Fortschritt: {0}%".format(round(count / len(self.deep_links) * 100, 2))
 
     def run_wih_flags(self, search_term: str, options: list, use_stored_links=False, use_stored_postings=False,
                       re_index=True):
@@ -68,19 +67,41 @@ class MainController:
                 except FileNotFoundError:
                     self.indexer.build_index(self.job_postings)
 
-            self.analyzer = Analyzer(self.search_term, self.indexer)
-            # print(self.analyzer.skill_frquency_in_index())
-            # pprint.pprint(self.analyzer.task_frequency_in_index())
-            # pprint.pprint(self.analyzer.benefits_frequency_in_index())
-            pprint.pprint(self.analyzer.requirements_frequency_in_index())
+    def present_results(self, options: list):
+        self.analyzer = Analyzer(self.search_term, self.indexer)
+        handler = FileHandler()
+        if 0 in options:
+            path = handler.write_output_to_file(self.search_term, self.indexer.index_info(), "index_info")
+            os.startfile(path)
 
-            # self.indexer.print_all_tokens()  # Debug
-            # self.indexer.print_paragraph_headings_for_all_docs()  # Debug
-            # self.indexer.print_index_info()  # Debug
+        if 1 in options:
+            path = handler.write_output_to_file(self.search_term,
+                                                pprint.pformat(self.analyzer.task_frequency_in_index()),
+                                                "task_frequency")
+            os.startfile(path)
 
+        if 2 in options:
+            path = handler.write_output_to_file(self.search_term,
+                                                pprint.pformat(self.analyzer.requirements_frequency_in_index()),
+                                                "requirements_frequency")
+            os.startfile(path)
 
-controller = MainController()
-controller.run_wih_flags("digital", [0, 1, 2],
-                         use_stored_links=True,
-                         use_stored_postings=True,
-                         re_index=False)
+        if 3 in options:
+            path = handler.write_output_to_file(self.search_term,
+                                                pprint.pformat(self.analyzer.benefits_frequency_in_index()),
+                                                "benefits_frequency")
+            os.startfile(path)
+
+        if 4 in options:
+            path = handler.write_output_to_file(self.search_term,
+                                                pprint.pformat(self.analyzer.skill_frquency_in_index()),
+                                                "skills_frequency")
+            os.startfile(path)
+
+# controller = MainController()
+# controller.run_wih_flags("digital change management", [0, 1, 2],
+#                          use_stored_links=True,
+#                          use_stored_postings=True,
+#                          re_index=False)
+# controller.present_results([1])
+# controller.present_results([3])

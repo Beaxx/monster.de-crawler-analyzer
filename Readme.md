@@ -14,8 +14,8 @@ Features
 * Gathers deep links of job postings from [monster.de](https://monster.de) for a given search term
 * Saves links to file
 * Parses and stores the postings content
-* (To be implemented) Correlation analysis of tokens inside of Postings
-* (To be implemented) Display of analysis result using matplotlib
+* Correlation analysis of tokens inside of Postings
+* Display of analysis results
 
 How to Run
 ---

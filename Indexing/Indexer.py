@@ -12,13 +12,13 @@ import logging
 from whoosh.analysis import analyzers
 from Indexing import Analyzing
 import regex as re
+import logging
 
 
 class Indexer:
     def __init__(self, search_term: str):
 
         self.schema = Schema(
-            # todo add Boosters to fields?
             educational_requirements=TEXT(),
             employment_type=ID(),
             experience_requirements=TEXT(),
@@ -45,7 +45,7 @@ class Indexer:
 
     def build_index(self, job_postings: list):
         self.ix = create_in(self.index_path, self.schema)  # Overwrites index if existent
-
+        length = len(job_postings)
         for i, posting in enumerate(job_postings):
             writer = self.ix.writer()
             writer.add_document(
@@ -66,6 +66,7 @@ class Indexer:
                                     paragraph_heading=paragraph,
                                     paragraph_content=posting.posting_text.get(paragraph))
             writer.commit()
+            logging.info("Indexing Fortschritt {0}%".format((round(i / length * 100, 2))))
         self.ix.writer().commit(optimize=True)
 
     def open_index(self):
@@ -84,29 +85,21 @@ class Indexer:
                     print("\t" + str(child["paragraph_heading"]))
                     print("\t" + str(child["paragraph_content"]))
 
-    def print_index_info(self):
+    def index_info(self) -> str:
         self.ix = index.open_dir(self.index_path)
         doc_count = 0
-        with self.ix.searcher() as s:
-            for hit in s.search(Every("parent_identifier"), limit=None):
-                doc_count += 1
-        print("The Index contains {0} Documents".format(doc_count))
+        searcher = self.ix.searcher()
+        for hit in searcher.search(Every("parent_identifier"), limit=None):
+            doc_count += 1
+        searcher.close()
+        out_string = ("The Index contains {0} Documents\n".format(doc_count))
 
         paragraph_count = 0
-        with self.ix.searcher() as s:
-            for hit in s.search(Every("parent"), limit=None):
-                paragraph_count += 1
-        print(
+        searcher = self.ix.searcher()
+        for hit in searcher.search(Every("parent"), limit=None):
+            paragraph_count += 1
+        searcher.close()
+
+        out_string += (
             "On Average every Document contains {0} Paragraphs".format(round(paragraph_count / doc_count, 2)))
-
-    def print_all_tokens(self):
-        self.ix = index.open_dir(self.index_path)
-        with self.ix.reader() as r:
-            print("Heading Tokens")
-            print(list(r.lexicon("paragraph_heading")))
-
-            print("\n\nContent Tokens")
-            print(list(r.lexicon("paragraph_content")))
-
-            print("\n\n Skill Tokens")
-            print(list(r.lexicon("skills")))
+        return out_string

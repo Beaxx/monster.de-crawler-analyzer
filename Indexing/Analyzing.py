@@ -5,11 +5,12 @@ from whoosh.analysis import tokenizers, analyzers
 from whoosh.analysis import LowercaseFilter, StopFilter, StemFilter
 from whoosh.query import Query
 from whoosh.query import Every
-from whoosh.searching import Results
+from whoosh.searching import Results, scoring
 from whoosh import qparser
 from whoosh.index import Index
 from Indexing.Indexer import Indexer
 import regex as re
+import whoosh.matching.wrappers
 
 STOP_WORDS = list()
 with open(os.path.join(definitions.MAIN_PATH, "Indexing", "STOP_WORDS_DE.txt"), encoding="utf-8") as f:
@@ -41,8 +42,11 @@ class Analyzer:
         self.schema = indexer.schema
 
     def skill_frquency_in_index(self) -> list:
-        with self.ix.reader() as r:
-            return r.most_frequent_terms("skills", 50)
+        try:
+            reader = self.ix.reader()
+            return reader.most_frequent_terms("skills", 50)
+        finally:
+            reader.close()
 
     @staticmethod
     def text_term_frequency(docs: Results) -> list:
@@ -52,6 +56,9 @@ class Analyzer:
 
         terms = dict()
         for doc in docs:
+            ranking_treshold = docs.score(int(len(docs)*0.50))
+            if doc.score < ranking_treshold:
+                break
             content = doc["paragraph_content"]
             for word in content.split(" "):
                 word_filtered = word_filter(word)
@@ -60,14 +67,14 @@ class Analyzer:
                 else:
                     terms[word_filtered] = 1
         sorted_by_value = sorted(terms.items(), key=lambda kv: kv[1], reverse=True)
-        return [(x[0], x[1]) for x in sorted_by_value[1:100]]
+        return [(x[0], x[1]) for x in sorted_by_value[int(len(sorted_by_value)*0.01):int(len(sorted_by_value)*0.20)]]
 
     def task_frequency_in_index(self) -> list:
         task_search_string = \
-             "alltag arbeitsgebiet~ are (aufgabe~ aufgabenbereich~ aufgabenbeschreibung aufgabenfeld " \
-             "aufgabengebiet~ aufgabenschwerpunkt~ aufgabenspektrum)^2 bietest bist challenge chance dein~ dich" \
-             "einsatz engagement^0.75 erwartet fachrichtung field (hauptaufgaben~2/12 haupttätigkeit~2/14)^2" \
-             "herausforderung ihr~ machst meine perspective~2/6 (responsibilitie~2/15)^1.5 schwerpunkt~ sie " \
+             "alltag arbeitsgebiet~ are bringen^(-0.5) (aufgabe~ aufgabenbereich~ aufgabenbeschreibung aufgabenfeld " \
+             "aufgabengebiet~ aufgabenschwerpunkt~ aufgabenspektrum)^2 bietest challenge chance dein~ dich" \
+             "einsatz engagement^0.75 erwartet field (hauptaufgaben~2/12 haupttätigkeit~2/14)^2" \
+             "herausforderung ihr~ machst meine (responsibilitie~2/15)^1.5 schwerpunkt~ sie " \
              "(task~/4)^3 themengebiet~2/12 tun umfasst unterstützen (verantwortlichkeit~2/18 verantwortung~2/13)^2" \
              "wirkungsfeld work workspace you~2/3"
 
@@ -75,29 +82,39 @@ class Analyzer:
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
 
-        with self.ix.searcher() as heading_searcher:
+        try:
+            heading_searcher = self.ix.searcher()
             result_docs = heading_searcher.search(parser.parse(task_search_string), limit=None)
             return self.text_term_frequency(result_docs)
+        except ZeroDivisionError:
+            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+        finally:
+            self.ix.searcher().close()
 
     def benefits_frequency_in_index(self) -> list:
         benefits_search_string = \
-            "angebot are attraktiv (bekommen bekommst benefit~ bieten)^2 bringen~2/5 dein~ dich dir^1.5 freuen" \
+            "angebot are attraktiv (bekommen bekommst benefit~ bieten)^2 dein~ dich dir^1.5 freuen" \
             "geboten^1.5 ihnen ihr~ erwarten kannst konditionen leistungen mehrwert mein mitarbeitervorteile^3 " \
             "offer our^1.5 perks^2 salary sie ticken uns unser~/4 unternehmensprofil (vorteil~/7)^2 wir worauf freuen" \
-            "you~2/3 zusatzleistungen^2 zusätzliche"
+            "you~2/3 zusatzleistungen^2 zusätzliche perspective~2/6"
 
         or_group = qparser.OrGroup.factory(1)
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
 
-        with self.ix.searcher() as heading_searcher:
+        try:
+            heading_searcher = self.ix.searcher()
             result_docs = heading_searcher.search(parser.parse(benefits_search_string), limit=None)
             return self.text_term_frequency(result_docs)
+        except ZeroDivisionError:
+            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+        finally:
+            self.ix.searcher().close()
 
     def requirements_frequency_in_index(self) -> list:
         requirements_search_string = \
             "(anforderung~2/5 anforderungsprofil)^2 anwenderkenntnisse~ are ausmacht auszeichnet background " \
-            "bedingungen berufserfahrung~2 bietest bist bringen~2/5 dein du (einstellungsvoraussetzungen~2/25)^3 " \
+            "bedingungen berufserfahrung~2 bietest bist (bringen~2/5)^2 dein du (einstellungsvoraussetzungen~2/25)^3 " \
             "(erfahrungen~2/9)^1.5 erforderlich~ erwarten (erwartungen~/5)^1.25 essential~ experiences~/7 fachgebiet" \
             "fachliche~/8 fachrichtung fähigkeiten^2 hast have ich ihr~ kannst kenntnisse~/8 (kompetenz~2/9)^2 " \
             "kompetenzprofil meine mitbringen mitbringst optimal~3/7 (pluspunkt~)^1.25 profil~2/4 punkten " \
@@ -109,6 +126,11 @@ class Analyzer:
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
 
-        with self.ix.searcher() as heading_searcher:
+        try:
+            heading_searcher = self.ix.searcher()
             result_docs = heading_searcher.search(parser.parse(requirements_search_string), limit=None)
             return self.text_term_frequency(result_docs)
+        except ZeroDivisionError:
+            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+        finally:
+            self.ix.searcher().close()

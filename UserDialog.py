@@ -7,7 +7,7 @@ import time
 import threading
 
 menutext = {
-    "title": "Monster.de Crawler V0.2",
+    "title": "Monster.de Crawler V0.3",
     "disclaimer1": "### Bei jeder Ausführung des Programs gilt zu bedenken, ",
     "disclaimer2": "dass mehrere hundert Anfragen an den Server gestellt werde können. ###",
     "saved_links_avail": "Der eingegebene Suchbegriff wurde schon einmal eingegeben. Es liegen daher bereits "
@@ -18,28 +18,33 @@ menutext = {
                          "geparste Postings zu dieser Anfrage vor. Sollen diese verwendet werden[YES], oder sollen "
                          "die Postings neu geparst werden[NO]?\n Das verwenden abgespeicherter Postings ist "
                          "(sehr) zeit- und bandbreitesparend. Das Programm springt bei [YES] direkt in die Analyse.",
+    "index_avail": "Für den eingegebenen Suchbegriff existiert bereits ein Dokument-Index. Soll dieser verwendet werden"
+                   "[NO]? oder soll reindexiert werden [YES]?"
 }
 
 
 class App(np.NPSAppManaged):
     use_stored_links = False
     use_stored_postings = False
+    re_index = False
     picked_options = None
     search_term = None
+    output_selection = None
 
     def onStart(self):
         self.controller: MainController = MainController()
         self.addForm('MAIN', MainForm, name=menutext.get("title"))
         self.addForm('Progress', ProgressForm, name=menutext.get("title"))
+        self.addForm('OutputSelection', Outputform, name=menutext.get("title"))
         self.init_logger()
 
-    # Debugging via log_listener.py (has to be started seperately
+    # Debugging via log_listener.py (has to be started seperately)
     def init_logger(self):
         self.rootLogger = logging.getLogger('')
         self.rootLogger.setLevel(logging.DEBUG)
         socketHandler = logging.handlers.SocketHandler('localhost', logging.handlers.DEFAULT_TCP_LOGGING_PORT, )
         self.rootLogger.addHandler(socketHandler)
-        logging.info('-' * 20)  # I added this line, to separate traces from multiple runs.
+        logging.info('-' * 20)
 
 
 class MainForm(np.SplitForm):
@@ -50,7 +55,7 @@ class MainForm(np.SplitForm):
         self.options: np.TitleMultiSelect = self.add(np.TitleMultiSelect, scroll_exit=True, editable=True,
                                                      max_height=4, name='Optionen',
                                                      values=['Links Abrufen', 'Postings Abrufen', 'Analyse'],
-                                                     value=[0, 1])
+                                                     value=[0, 1, 2])
 
         self.nextrely += 4
         self.disclaimer1: np.FixedText = self.add(np.FixedText, value=menutext.get("disclaimer1"), color="STANDOUT",
@@ -89,6 +94,9 @@ class MainForm(np.SplitForm):
             self.parentApp.use_stored_postings: bool = np.notify_yes_no(menutext.get("saved_postings_avail"),
                                                                         "Achtung!", editw=1)
 
+        if self.check_inputs("index"):
+            self.parentApp.re_index: bool = np.notify_yes_no(menutext.get("index_avail"), "Achtung!", editw=1)
+
         self.parentApp.setNextForm('Progress')
 
     def check_inputs(self, identifier):
@@ -122,12 +130,18 @@ class MainForm(np.SplitForm):
                             self.search_term.value.lower()):
                     return True
 
+        def index_available() -> bool:
+            if self.parentApp.controller.file_handler.index_available(
+                    self.search_term.value.lower()):
+                return True
+
         switcher = {
             "term": search_term_ok,
             "options": options__input_ok,
             "options_order": options_order_ok,
             "links": saved_links_available,
-            "postings": saved_postings_available
+            "postings": saved_postings_available,
+            "index": index_available
         }
 
         return switcher[identifier]()
@@ -149,7 +163,8 @@ class ProgressForm(np.Form):
                                                               args=(self.parentApp.search_term,
                                                                         sorted(self.parentApp.picked_options),
                                                                         self.parentApp.use_stored_links,
-                                                                        self.parentApp.use_stored_postings))
+                                                                        self.parentApp.use_stored_postings,
+                                                                        self.parentApp.re_index))
         self.main_thread.setDaemon(True)
         self.main_thread.start()
         self.nextrely += 5
@@ -174,7 +189,10 @@ class ProgressForm(np.Form):
         managing_thread.start()
 
     def afterEditing(self):
-        self.parentApp.setNextForm(None)
+        if 2 in self.parentApp.picked_options:
+            self.parentApp.setNextForm('OutputSelection')
+        else:
+            self.parentApp.setNextForm(None)
 
     def progress_stream(self):
         progress_stream = StringIO()
@@ -198,7 +216,7 @@ class ProgressForm(np.Form):
         self.requests_line = self.add(np.Textfield, color="CONTROL", value="")
         while not self.progrss_kill_flag:
             time.sleep(0.2)
-            self.progress_line.value = progress_stream.getvalue()[:19]
+            self.progress_line.value = progress_stream.getvalue()[:37]
             self.requests_line.value = request_stream.getvalue()
 
             self.progress_line.update()
@@ -233,6 +251,23 @@ class ProgressForm(np.Form):
             self.progress_notify.color = 'DANGER'
             self.progress_notify.update()
             time.sleep(0.7)
+
+
+class Outputform(np.Form):
+    def create(self):
+        self.keypress_timeout = 1
+        self.fixed_text: np.FixedText = self.add(np.FixedText, relx=55, value="Ergebnisdarstellung Auswählen")
+
+        self.options: np.TitleMultiSelect = self.add(np.TitleMultiSelect, scroll_exit=True, editable=True,
+                                                     name='Optionen',
+                                                     values=['Index Informationen',
+                                                             'Häufigste Tätigkeiten',
+                                                             'Häufigste Anforderungen',
+                                                             'Häufigste Benefits',
+                                                             'Häufigkeit Skills'])
+
+    def afterEditing(self):
+        self.parentApp.controller.present_results(sorted(self.options.value))
 
 
 if __name__ == '__main__':

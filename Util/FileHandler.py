@@ -5,10 +5,10 @@ import re
 import hashlib
 from Parsing import Posting
 import shutil
+import whoosh.index
+
 
 class FileHandler:
-    def __init__(self):
-        pass
 
     # Util
     @staticmethod
@@ -85,3 +85,20 @@ class FileHandler:
                       "w+", encoding='utf-8') as f:
                 f.write(posting.__str__())
         pass
+
+    # Index
+    @staticmethod
+    def index_available(search_term: str) -> bool:
+        folder_path = os.path.join(defi.MAIN_PATH, "Storage", "Indexe", search_term)
+        return whoosh.index.exists_in(folder_path)
+
+    # Output
+    def write_output_to_file(self, search_term:str, output: str, file_name: str) -> str:
+        folder_path = os.path.join(defi.MAIN_PATH, "Output", search_term)
+        self.if_folder_not_existent_create(folder_path)
+
+        file_path = os.path.join(folder_path, file_name + ".txt")
+        with open(file_path, "w+", encoding='utf-8') as f:
+            f.write(output)
+
+        return file_path
