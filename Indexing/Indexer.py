@@ -66,6 +66,8 @@ class Indexer:
                                    paragraph_heading=paragraph,
                                    paragraph_content=posting.posting_text.get(paragraph))
             writer.commit()
+        self.ix.writer().commit(optimize=True)
+
 
     def open_index(self):
         try:
