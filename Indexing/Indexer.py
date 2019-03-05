@@ -45,10 +45,10 @@ class Indexer:
 
     def build_index(self, job_postings: list):
         self.ix = create_in(self.index_path, self.schema)  # Overwrites index if existent
-        self.writer = self.ix.writer()
 
         for i, posting in enumerate(job_postings):
-            self.writer.add_document(
+            writer = self.ix.writer()
+            writer.add_document(
                 educational_requirements=posting.educational_requirements,
                 employment_type=posting.empolyment_type,
                 experience_requirements=posting.experience_requirements,
@@ -61,11 +61,11 @@ class Indexer:
             )
 
             for j, paragraph in enumerate(posting.posting_text.keys()):
-                self.writer.add_document(parent=i,
-                                         paragraph_number=j,
-                                         paragraph_heading=paragraph,
-                                         paragraph_content=posting.posting_text.get(paragraph))
-        self.writer.commit()
+                    writer.add_document(parent=i,
+                                   paragraph_number=j,
+                                   paragraph_heading=paragraph,
+                                   paragraph_content=posting.posting_text.get(paragraph))
+            writer.commit()
 
     def open_index(self):
         try:

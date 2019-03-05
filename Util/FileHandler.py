@@ -73,8 +73,8 @@ class FileHandler:
             try:
                 return re.sub(r'\W', "", job_posting.title)[:20] + str(hash(job_posting))
             except TypeError:
-                md5 = hashlib.md5(job_posting)
-                return "unknown" + str(md5[:20])  # Adding part of hash to avoid name collision
+                md5 = hash(job_posting)
+                return "unknown" + str(md5)  # Adding part of hash to avoid name collision
 
         folder_path = os.path.join(defi.MAIN_PATH, "Postings", search_term)
         self.if_folder_not_existent_create(folder_path)

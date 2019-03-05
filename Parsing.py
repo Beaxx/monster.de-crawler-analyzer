@@ -199,10 +199,6 @@ class PostingParser:
         :return: Ein Posting
         """
 
-        # stringo = r"https://stellenangebot.monster.de/business-analyst-m-w-d-schnittstellen-workflow-systeme-frankfurt-am-main-hessen-de-deutsche-bank/204233860"
-        # if unquote(response.url) == stringo:
-        #     print()
-
         posting = Posting()
         posting_data: dict = self.parsing_controller(response.text)
 
@@ -287,40 +283,40 @@ class PostingParser:
         except AttributeError:
             return dict()
 
-    @staticmethod
-    def __parse_description(description: str) -> dict:
+    def __parse_description(self, description: str) -> dict:
         """
         Interpretiert HTML Text und versucht dabei Absätze und Überschriften zu identifizieren.
         :param description: Job Description als HTML
         :return: Dictionary der Form {Absatzüberschrift: Absatztext}
         """
-        description_parsed: HtmlElement = html.fromstring(description.strip().replace("\r", "").replace("\n", ""))
-        #  Search for all heading indicating tags
 
-        # Search by lists (ul, li)
+        description_parsed: HtmlElement = html.fromstring(description.strip().replace("\r", "").replace("\n", ""))
+
+        ###Search for all heading indicating tags ###
+        # Search heading by HTML
         headings: HtmlElement = description_parsed.xpath(
-            r"//*[self::strong or self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6]"
+            r"//*[self::strong or self::b or self::h2 or self::h3 or self::h4 or self::h5 or self::h6]"
             r"[string-length(text()) > 3]")
 
-        # Search by css tags
+        # Search Heading by css
         if len(headings) == 0:
-            headings = description_parsed.xpath(r"//*[contains(@style, 'font-weight')][string-length(text()) > 3]")
+            headings: HtmlElement = description_parsed.xpath(
+                r"//*[contains(@style, 'font-weight') or contains(@style, 'font-size: 14')][string-length(text()) > 3]")
 
-        try:
-            contents = headings[0].xpath(r"//*[string-length(text()) > 3]")
-        except IndexError:
-            fallback_output = dict()
-            contents = description_parsed.xpath("//*[string-length(text()) > 20]")
-            for i, p in enumerate(contents):
-                fallback_output[i] = p.text
-            return fallback_output
+        # If there are no headings, parsing cant continue
+        if len(headings) == 0:
+            return dict()
 
-        if len(headings) == 0 or len(contents) == 0:
-            print()
+        # Search content by HTML
+        contents = headings[0].xpath(r"//*[string-length(text()) > 3]")
 
-        # Try parsing css
-        if not contents:
-            r"//*[contains(@style, 'font-weight')][string-length(text()) > 4]"
+        # Search content by CSS
+        if len(contents) == 0:
+            contents = headings[0].xpath(r"//*[contains(@style, 'font-weight')][string-length(text()) > 4]")
+
+        # If there is not content, parsing cant continue
+        if len(contents) == 0:
+            return dict()
 
         paragraphs = list()
         for i, heading in enumerate(headings):
@@ -331,31 +327,66 @@ class PostingParser:
             for line in contents:
                 try:
                     if not is_last_heading:
-                        if line.text == headings[i + 1].text:
-                            break
-                except IndexError:
-                    is_last_heading = True
+                        if line.text == headings[i + 1].text:  # Current line matching next heading
+                            break  # indicates end of content block
 
-                if line.text == heading.text:
-                    paragraphs[i].append(heading.text)
-                    content_begins_flag = True
+                except IndexError:
+                    is_last_heading = True  # If headings[i +1] throws an index error this is the last heading
+                except TypeError:
                     continue
-                if content_begins_flag == True:
-                    paragraphs[i].append(line.text)
+
+                if is_last_heading and len(paragraphs[i]) > 10:  # For the last heading only parse 10 rows
+                    break  # this is needed because last heading matches to EOF
+
+                try:
+                    if line.text == heading.text and 5 < len(line.text) < 40:  # When current heading is matched begin
+                        paragraphs[i].append(heading.text)  # content parsing
+                        content_begins_flag = True
+                        continue
+                except TypeError:
+                    continue
+
+                if content_begins_flag:
+                    paragraphs[i].append(line.text)  # as long as flag is True parse content
 
         paragraphs.sort(key=len, reverse=True)  # Puts lists that are empty to the end
 
         output = dict()
         for i, paragraph in enumerate(paragraphs):
             try:
-                p_sanatized = [x for x in paragraph if x is not None]
+                p_sanatized = self.sanatize_paragraph(paragraph)
 
                 if len(paragraph) > 0:
                     if len(max(p_sanatized, key=len)) > 20:
                         paragraph_content = " ".join(p_sanatized[1:])
-                        output[p_sanatized[0]] = paragraph_content.lower()
+                        output[p_sanatized[0].lower()] = paragraph_content.lower()
                     else:
                         continue
-            except (IndexError, TypeError):
-                break
+            except (IndexError, TypeError, ValueError):
+                continue
         return output
+
+    @staticmethod
+    def sanatize_paragraph(paragraph) -> list:
+        """
+        Entfernung von zeichen, zahlen, überzähligen Leerzeichen
+        :param paragraph: Liste von Strings
+        :return: Bereinigte Liste von Strings
+        """
+        sanatized = list()
+        for ind, itm in enumerate(paragraph):
+            if itm:
+                itm = re.sub(r"\.", " ", itm)  # Replace dots with whitespaces
+                itm = re.sub(r"(?=[^ ])\P{L}", " ", itm)  # Replace all non-word chars with whitespaces
+                itm = re.sub(r" {2,}", " ", itm)  # Strip excess whitespaces
+
+                if not itm or len(itm.strip()) <= 3:
+                    continue
+                sanatized.append(itm.strip().lower())
+
+            if not itm and ind == 0:
+                return list()
+        if len(sanatized) == 1:
+            return list()
+
+        return sanatized

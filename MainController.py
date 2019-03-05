@@ -6,7 +6,7 @@ from Indexing.Indexer import Indexer
 from whoosh.index import Index
 import time
 import logging
-import hashlib
+
 
 class MainController:
     def __init__(self):
@@ -25,11 +25,11 @@ class MainController:
             time.sleep(0.1)  # politeness
             posting = self.posting_parser.build(RequestManager.unauthenticated_request(url))
             posting_hash = hash(posting)
-            # Duplicates and Postings without description are discarded
-            if len(posting.posting_text) > 0 and posting_hash not in controll_hashset:
-                self.job_postings.append(posting)
-                controll_hashset.add(posting_hash)
-
+            # Duplicates and Postings without inusfficient description are discarded
+            if posting.posting_text:
+                if len(posting.posting_text) > 1 and posting_hash not in controll_hashset:
+                    self.job_postings.append(posting)
+                    controll_hashset.add(posting_hash)
             count += 1
             logging.info(self.parsing_progress(count))
         logging.info(self.parsing_coverage())
@@ -70,15 +70,15 @@ class MainController:
 
             self.analyzer = Analyzer(self.search_term, self.indexer)
             # print(self.analyzer.skill_frquency_in_index())
-            # print(self.analyzer.task_frequency_in_index())
+            print(self.analyzer.task_frequency_in_index())
 
-            self.indexer.print_all_tokens()  # Debug
+            # self.indexer.print_all_tokens()  # Debug
             # self.indexer.print_paragraph_headings_for_all_docs()  # Debug
-            # self.indexer.print_index_info()  # Debug
+            self.indexer.print_index_info()  # Debug
 
 
 controller = MainController()
-controller.run_wih_flags("digital change management", [0, 1],
+controller.run_wih_flags("digital", [0, 1, 2],
                          use_stored_links=True,
-                         use_stored_postings=False,
-                         re_index=True)
+                         use_stored_postings=True,
+                         re_index=False)
