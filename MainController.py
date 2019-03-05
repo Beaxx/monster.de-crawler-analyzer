@@ -70,7 +70,9 @@ class MainController:
 
             self.analyzer = Analyzer(self.search_term, self.indexer)
             # print(self.analyzer.skill_frquency_in_index())
-            pprint.pprint(self.analyzer.task_frequency_in_index())
+            # pprint.pprint(self.analyzer.task_frequency_in_index())
+            # pprint.pprint(self.analyzer.benefits_frequency_in_index())
+            pprint.pprint(self.analyzer.requirements_frequency_in_index())
 
             # self.indexer.print_all_tokens()  # Debug
             # self.indexer.print_paragraph_headings_for_all_docs()  # Debug

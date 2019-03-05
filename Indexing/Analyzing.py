@@ -42,11 +42,25 @@ class Analyzer:
 
     def skill_frquency_in_index(self) -> list:
         with self.ix.reader() as r:
-            return (r.most_frequent_terms("skills", 20))
+            return r.most_frequent_terms("skills", 50)
 
-    def word_filter(self, word):
-        if word != "None" and word not in STOP_WORDS and len(word) > 5:
-            return word
+    @staticmethod
+    def text_term_frequency(docs: Results) -> list:
+        def word_filter(word: str) -> str:
+            if word != "None" and word not in STOP_WORDS and len(word) > 5:
+                return word
+
+        terms = dict()
+        for doc in docs:
+            content = doc["paragraph_content"]
+            for word in content.split(" "):
+                word_filtered = word_filter(word)
+                if word_filtered in terms:
+                    terms[word_filtered] += 1
+                else:
+                    terms[word_filtered] = 1
+        sorted_by_value = sorted(terms.items(), key=lambda kv: kv[1], reverse=True)
+        return [(x[0], x[1]) for x in sorted_by_value[1:100]]
 
     def task_frequency_in_index(self) -> list:
         task_search_string = \
@@ -61,26 +75,9 @@ class Analyzer:
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
 
-        # Search Paragraph headings for task indicating terms
         with self.ix.searcher() as heading_searcher:
             result_docs = heading_searcher.search(parser.parse(task_search_string), limit=None)
-
-            terms = dict()
-            for doc in result_docs:
-                content = doc["paragraph_content"]
-                for word in content.split(" "):
-                    word_filtered = self.word_filter(word)
-                    if word_filtered in terms:
-                        terms[word_filtered] += 1
-                    else:
-                        terms[word_filtered] = 1
-            sorted_by_value = sorted(terms.items(), key=lambda kv: kv[1], reverse=True)
-            return [(x[0], x[1]) for x in sorted_by_value[:100]]
-
-        # with result_docs.reader() as content_searcher:
-        #     return content_searcher.most_frequent_terms("paragraph_content", 50)
-
-        # frequenz von termen in den dazugehörigen content blocks
+            return self.text_term_frequency(result_docs)
 
     def benefits_frequency_in_index(self) -> list:
         benefits_search_string = \
@@ -92,6 +89,10 @@ class Analyzer:
         or_group = qparser.OrGroup.factory(1)
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
+
+        with self.ix.searcher() as heading_searcher:
+            result_docs = heading_searcher.search(parser.parse(benefits_search_string), limit=None)
+            return self.text_term_frequency(result_docs)
 
     def requirements_frequency_in_index(self) -> list:
         requirements_search_string = \
@@ -107,3 +108,7 @@ class Analyzer:
         or_group = qparser.OrGroup.factory(1)
         parser = qparser.QueryParser("paragraph_heading", schema=self.schema, group=or_group)
         parser.add_plugin(qparser.FuzzyTermPlugin())
+
+        with self.ix.searcher() as heading_searcher:
+            result_docs = heading_searcher.search(parser.parse(requirements_search_string), limit=None)
+            return self.text_term_frequency(result_docs)
