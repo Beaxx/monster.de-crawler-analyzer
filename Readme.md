@@ -20,3 +20,6 @@ Features
 How to Run
 ---
 Start UserDialog.py
+
+__Important:__ Because most IDE's reroute stdout to the build in console which npyscreen prohibits this
+program must be launches via comandline and not from inside an IDE.
