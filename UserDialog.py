@@ -6,6 +6,7 @@ import logging.handlers
 import time
 import threading
 
+# Texts for menus in user interface
 menutext = {
     "title": "Monster.de Crawler V0.3",
     "disclaimer1": "### Bei jeder Ausführung des Programs gilt zu bedenken, ",
@@ -24,6 +25,10 @@ menutext = {
 
 
 class App(np.NPSAppManaged):
+    """
+    Wrapper um die Programfenster. Schafft einen high-level Rahmen um die ganze Anwendung und stellt für die daran
+    angeschlossenen Subklassen einen globalen variablen Scope bereit.
+    """
     use_stored_links = False
     use_stored_postings = False
     re_index = False
@@ -32,14 +37,21 @@ class App(np.NPSAppManaged):
     output_selection = None
 
     def onStart(self):
+        """
+        Legt die Forms fest, die zum Start generiert werden sollen (werden jedoch noch nicht angezeigt)
+        """
         self.controller: MainController = MainController()
         self.addForm('MAIN', MainForm, name=menutext.get("title"))
         self.addForm('Progress', ProgressForm, name=menutext.get("title"))
         self.addForm('OutputSelection', Outputform, name=menutext.get("title"))
         self.init_logger()
 
-    # Debugging via log_listener.py (has to be started seperately)
     def init_logger(self):
+        """
+        Debugging
+        Umleitung des logging Outputs auf einen listener. Dieser muss über die Datei log_listener.py separat gestartet
+        werden
+        """
         self.rootLogger = logging.getLogger('')
         self.rootLogger.setLevel(logging.DEBUG)
         socketHandler = logging.handlers.SocketHandler('localhost', logging.handlers.DEFAULT_TCP_LOGGING_PORT, )
@@ -48,7 +60,15 @@ class App(np.NPSAppManaged):
 
 
 class MainForm(np.SplitForm):
+    """
+    Start Screen der Anwendung
+    """
+
     def create(self):
+        """
+        Generiert  die Elemente des MainForm
+        """
+
         self.search_term: np.TitleText = self.add(np.TitleText, name='Suchbegriff', color='DANGER', editable=True,
                                                   value='digital change management')
 
@@ -63,25 +83,10 @@ class MainForm(np.SplitForm):
         self.disclaimer2: np.FixedText = self.add(np.FixedText, value=menutext.get("disclaimer2"), color="STANDOUT",
                                                   name='disclaimer2')
 
-        # todo: User Input is not sanatized
-        # all_checked = [False, False, False]
-        #
-        # if not self.check_inputs("term") and not all_checked[0]:
-        #     np.notify_confirm("Suchfeld fehler", "Fehler", editw=1)
-        # else:
-        #     all_checked[0] = True
-        #
-        # if not self.check_inputs("options") and not all_checked[1]:
-        #     np.notify_confirm("Keine Optionen eingegeben", "Fehler", editw=1)
-        # else:
-        #     all_checked[1] = True
-        #
-        # if not self.check_inputs("options_order") and not all_checked[2]:
-        #     np.notify_confirm("Reihenfolge Optionen falsch", "Fehler", editw=1)
-        # else:
-        #     all_checked[2] = True
-
     def afterEditing(self):
+        """
+        Legt Aktionen fest, die ausgeführt werden, sobald der OK-Button des Main Forms betätigt wird.
+        """
 
         self.parentApp.search_term = self.search_term.value
         self.parentApp.picked_options = self.options.value
@@ -100,6 +105,11 @@ class MainForm(np.SplitForm):
         self.parentApp.setNextForm('Progress')
 
     def check_inputs(self, identifier):
+        """
+        Eingabeüberprüfung
+        :param identifier: Identifiziert den zu überprüfenden Input
+        """
+
         def search_term_ok() -> bool:
             if self.search_term.value is None or len(self.search_term.value) < 5:
                 return False
@@ -148,7 +158,15 @@ class MainForm(np.SplitForm):
 
 
 class ProgressForm(np.Form):
+    """
+    Progress Screen der Anwendung
+    """
+
     def create(self):
+        """
+        Generiert  die Elemente des Progress Form
+        """
+
         self.keypress_timeout = 1
         self.fixed_text: np.FixedText = self.add(np.FixedText, relx=55, value="PROGRESS")
 
@@ -159,6 +177,12 @@ class ProgressForm(np.Form):
                                                  value=definitions.MAIN_PATH + "\\Postings")
 
     def beforeEditing(self):
+        """
+        Legt Aktionen fest, die nach der Generierung der Elemente des Progress Forms und vor ihrer Editierung
+        stattfinden
+        """
+
+        # Starts algorithm thread
         self.main_thread: threading.Thread = threading.Thread(target=self.parentApp.controller.run_wih_flags,
                                                               args=(self.parentApp.search_term,
                                                                         sorted(self.parentApp.picked_options),
@@ -170,14 +194,17 @@ class ProgressForm(np.Form):
         self.nextrely += 5
         self.progress_notify = self.add(np.FixedText, relx=50, color='DANGER', value="Vorgang läuft...")
 
+        # Starts progress notification thread
         self.blink_kill_flag = False
         self.blink_thread: threading.Thread = threading.Thread(target=self.blink)
         self.blink_thread.setDaemon(True)
         self.blink_thread.start()
 
+        # Starts progress-done notification thread
         finished_thread = threading.Thread(target=self.finished_message)
         finished_thread.start()
 
+        # Starts %-progress notification thread
         self.progrss_kill_flag = False
         self.progress_stream_thread: threading.Thread = threading.Thread(target=self.progress_stream)
         self.progress_stream_thread.setDaemon(True)
@@ -189,12 +216,19 @@ class ProgressForm(np.Form):
         managing_thread.start()
 
     def afterEditing(self):
+        """
+        Legt Aktionen fest, die ausgeführt werden, sobald der OK-Button des Progress Forms betätigt wird.
+        """
+
         if 2 in self.parentApp.picked_options:
             self.parentApp.setNextForm('OutputSelection')
         else:
             self.parentApp.setNextForm(None)
 
     def progress_stream(self):
+        """
+        Generiert einen Output Stream, die den prozentualen Forschritt der Anwendung protokolliert und ausgibt
+        """
         progress_stream = StringIO()
         request_stream = StringIO()
 
@@ -216,7 +250,7 @@ class ProgressForm(np.Form):
         self.requests_line = self.add(np.Textfield, color="CONTROL", value="")
         while not self.progrss_kill_flag:
             time.sleep(0.2)
-            self.progress_line.value = progress_stream.getvalue()[:37]
+            self.progress_line.value = progress_stream.getvalue()[:37]  # Capture end of stream
             self.requests_line.value = request_stream.getvalue()
 
             self.progress_line.update()
@@ -230,6 +264,9 @@ class ProgressForm(np.Form):
         request_handler.close()
 
     def finished_message(self):
+        """
+        Generiert die "Prozess abgeschlossen"-Nachricht
+        """
         while not self.blink_kill_flag:
             time.sleep(1)
         self.progress_notify.color = 'GOOD'
@@ -238,12 +275,19 @@ class ProgressForm(np.Form):
         self.progress_notify.update()
 
     def manage_threads(self):
+        """
+        Setzt die kill-Flags der Subthreads auf True, wenn der Algorithmus seine Arbeit abgeschlossen hat.
+        """
+
         while self.main_thread.isAlive():
             time.sleep(1)
         self.blink_kill_flag = True
         self.progrss_kill_flag = True
 
     def blink(self):
+        """
+        Generiert die blinkende Animation der "Vorgang läuft..." Nachricht
+        """
         while not self.blink_kill_flag:
             self.progress_notify.color = 'CAUTION'
             self.progress_notify.update()
@@ -254,7 +298,13 @@ class ProgressForm(np.Form):
 
 
 class Outputform(np.Form):
+    """
+    Output Screen der Anwendung
+    """
     def create(self):
+        """
+        Generiert die Elemente des Output Form
+        """
         self.keypress_timeout = 1
         self.fixed_text: np.FixedText = self.add(np.FixedText, relx=55, value="Ergebnisdarstellung Auswählen")
 
@@ -267,6 +317,10 @@ class Outputform(np.Form):
                                                              'Häufigkeit Skills'])
 
     def afterEditing(self):
+        """
+        Legt Aktionen fest, die ausgeführt werden, sobald der OK-Button des Output Forms betätigt wird.
+        Startet die Generierung des Outputs
+        """
         self.parentApp.controller.present_results(sorted(self.options.value))
 
 
