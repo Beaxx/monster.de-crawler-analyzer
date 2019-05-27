@@ -7,7 +7,9 @@ Dependencies
 * lxml (Parsing HTML)
 * beautifulsoup 4 (Parsing HTML)
 * npyscreen (Console based UI)
+* curses (windows: [Binaries](https://www.lfd.uci.edu/~gohlke/pythonlibs/#curses))
 * whoosh (Information Retrieval)
+* regex (pip install regex, not the python included one)
 
 Features
 ---

@@ -4,18 +4,17 @@ from whoosh.writing import IndexWriter
 from whoosh.index import open_dir
 from whoosh.query import Every
 from whoosh import index
-import whoosh.fields
 import definitions
 import os.path
 from Util.FileHandler import FileHandler
-import logging
-from whoosh.analysis import analyzers
 from Indexing import Analyzing
-import regex as re
 import logging
 
 
 class Indexer:
+    """
+    Der Indexer legt das Indexing Schema (die Felder des Index) fest und befüllt diese mit den Werten aus den Postings
+    """
     def __init__(self, search_term: str):
 
         self.schema = Schema(
@@ -44,6 +43,13 @@ class Indexer:
         self.writer: IndexWriter = None
 
     def build_index(self, job_postings: list):
+        """
+        Der builder iteriert über alle Job-Postings und indexiert die jeweiligen Werte. Die Paare aus
+        {Absatzsüberschrift : Absatztext} werden dabei als Paare gespeichert und erhalten eine Referenz auf
+        das jeweilige Dokument, zu dem sie gehören.
+
+        :param job_postings: Liste von Posting Objekten
+        """
         self.ix = create_in(self.index_path, self.schema)  # Overwrites index if existent
         length = len(job_postings)
         for i, posting in enumerate(job_postings):
@@ -77,15 +83,23 @@ class Indexer:
             raise FileNotFoundError
 
     def print_paragraph_headings_for_all_docs(self):
+        """
+        DEBUGGING
+        Gibt die Überschriften aller Absätze aller Dokumente des Index aus.
+        """
         self.ix = index.open_dir(self.index_path)
         with self.ix.searcher() as s:
             for hit in s.search(Every("parent_identifier"), limit=None):
                 print("Title: " + hit["title"])
                 for child in s.documents(parent=hit["parent_identifier"]):
                     print("\t" + str(child["paragraph_heading"]))
-                    print("\t" + str(child["paragraph_content"]))
 
     def index_info(self) -> str:
+        """
+        Baut einen String, der Informationen über den Index enthält. Anzahl der Dokumente und durchschnittliche
+        Anzahl an Absätzen pro Dokument.
+        :return: Index Informationen als String
+        """
         self.ix = index.open_dir(self.index_path)
         doc_count = 0
         searcher = self.ix.searcher()

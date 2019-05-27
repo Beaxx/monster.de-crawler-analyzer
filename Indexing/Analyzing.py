@@ -1,17 +1,15 @@
-from abc import ABC
 import definitions
 import os
-from whoosh.analysis import tokenizers, analyzers
-from whoosh.analysis import LowercaseFilter, StopFilter, StemFilter
-from whoosh.query import Query
-from whoosh.query import Every
-from whoosh.searching import Results, scoring
+from whoosh.analysis import tokenizers
+from whoosh.analysis import LowercaseFilter, StopFilter
+from whoosh.searching import Results
 from whoosh import qparser
 from whoosh.index import Index
 from Indexing.Indexer import Indexer
 import regex as re
-import whoosh.matching.wrappers
 
+
+# Builds a joined stop word list from english and german words
 STOP_WORDS = list()
 with open(os.path.join(definitions.MAIN_PATH, "Indexing", "STOP_WORDS_DE.txt"), encoding="utf-8") as f:
     for line in f.readlines():
@@ -30,26 +28,46 @@ class RegexTokenizer(tokenizers.RegexTokenizer):
 
 
 def ImprovedTokenizer():
-    chain = RegexTokenizer() | LowercaseFilter() | \
-            StopFilter(stoplist=STOP_WORDS, minsize=2)
+    """
+    Basiert auf dem whoosh RegexTokenizer. Dies ist nur ein Wrapper um die Funktionalität des Tokenizers
+    """
+    chain = RegexTokenizer() | LowercaseFilter() | StopFilter(stoplist=STOP_WORDS, minsize=2)
     return chain
 
 
 class Analyzer:
+    """
+    Der Analyzer hält einen Index sowie das Indexschema und ist für die Informationretrieval Operationen auf dem Index
+    verantwortlich
+    """
     def __init__(self, search_term: str, indexer: Indexer):
         self.search_term = search_term
         self.ix: Index = indexer.ix
         self.schema = indexer.schema
 
     def skill_frquency_in_index(self) -> list:
+        """
+        Ermittelt die 50 häufigsten Skills in allen Dokumenten des Index
+        :return: Eine Liste von Strings
+        """
         try:
             reader = self.ix.reader()
-            return reader.most_frequent_terms("skills", 50)
+            skills = reader.most_frequent_terms("skills", 100)
+            return ["{0},{1}".format(x[1].decode(), int(x[0])) for x in skills]
         finally:
             reader.close()
 
     @staticmethod
     def text_term_frequency(docs: Results) -> list:
+        """
+        Ermittelt für eine gegebene Liste an Dokumenten (Results Objekt) die häufigsten Terme. Zurückgegeben werden
+        (in Abhängigkeit der länge der Liste der gefunden Terme) die top 20%, wobei die 1% der häufigsten Terme
+        herausgefiltert werden.
+        :param docs: Zu durchsuchende Dokumente als Results Objekt
+        :return: Liste aus Strings
+        """
+
+        # Filters stopwords and words shorter then 5 chars
         def word_filter(word: str) -> str:
             if word != "None" and word not in STOP_WORDS and len(word) > 5:
                 return word
@@ -69,6 +87,9 @@ class Analyzer:
         sorted_by_value = sorted(terms.items(), key=lambda kv: kv[1], reverse=True)
         return [(x[0], x[1]) for x in sorted_by_value[int(len(sorted_by_value)*0.01):int(len(sorted_by_value)*0.20)]]
 
+    def rate_paragraphs(self):
+        pass  # todo rate paragraphs
+
     def task_frequency_in_index(self) -> list:
         task_search_string = \
              "alltag arbeitsgebiet~ are bringen^(-0.5) (aufgabe~ aufgabenbereich~ aufgabenbeschreibung aufgabenfeld " \
@@ -87,7 +108,7 @@ class Analyzer:
             result_docs = heading_searcher.search(parser.parse(task_search_string), limit=None)
             return self.text_term_frequency(result_docs)
         except ZeroDivisionError:
-            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+            return str("Für diese Anfrage waren zu wenig Dokumente vorhanden")
         finally:
             self.ix.searcher().close()
 
@@ -107,7 +128,7 @@ class Analyzer:
             result_docs = heading_searcher.search(parser.parse(benefits_search_string), limit=None)
             return self.text_term_frequency(result_docs)
         except ZeroDivisionError:
-            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+            return str("Für diese Anfrage waren zu wenig Dokumente vorhanden")
         finally:
             self.ix.searcher().close()
 
@@ -131,6 +152,6 @@ class Analyzer:
             result_docs = heading_searcher.search(parser.parse(requirements_search_string), limit=None)
             return self.text_term_frequency(result_docs)
         except ZeroDivisionError:
-            return str("Für diese Anfrage waren zu wenig Dokumente Vorhanden")
+            return str("Für diese Anfrage waren zu wenig Dokumente vorhanden")
         finally:
             self.ix.searcher().close()

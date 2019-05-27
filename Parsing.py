@@ -2,7 +2,6 @@ from Util.RequestManager import RequestManager
 import definitions
 from requests import Response
 from regex import regex as re
-from lxml.etree import tostring as etree_tostring
 import math
 from lxml import html
 from lxml.html import HtmlElement
@@ -10,7 +9,6 @@ import time
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup as Bs
-from urllib.parse import unquote
 import hashlib
 import logging
 
@@ -158,7 +156,7 @@ class Posting:
         self.posting_text: dict = None
 
     def __str__(self):
-        def posting_text_strngbuilder():
+        def posting_text_stringbuilder():
             s_parts = list()
             for content_block_key in self.posting_text:
                 s_parts.append("{0}\n{1}".format(content_block_key, self.posting_text.get(content_block_key)))
@@ -183,7 +181,7 @@ class Posting:
             self.empolyment_type,
             self.experience_requirements,
             self.skills,
-            posting_text_strngbuilder())
+            posting_text_stringbuilder())
 
     def __hash__(self):
         return int(hashlib.md5(self.__repr__().encode('utf-8')).hexdigest(), 16)

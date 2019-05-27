@@ -70,38 +70,54 @@ class MainController:
     def present_results(self, options: list):
         self.analyzer = Analyzer(self.search_term, self.indexer)
         handler = FileHandler()
+
+        def format_list(input_list: list) -> list:
+            out = list()
+            for i in input_list:
+                out.append("{0},{1}".format(i[0], i[1]))
+            return out
+
         if 0 in options:
             path = handler.write_output_to_file(self.search_term, self.indexer.index_info(), "index_info")
             os.startfile(path)
 
+        if 1 in options or 2 in options or 3 in options or 4 in options:
+            paragraph_rating = self.analyzer.rate_paragraphs()
+
         if 1 in options:
             path = handler.write_output_to_file(self.search_term,
-                                                pprint.pformat(self.analyzer.task_frequency_in_index()),
+                                                pprint.pformat(
+                                                    format_list(self.analyzer.task_frequency_in_index())),
                                                 "task_frequency")
             os.startfile(path)
 
         if 2 in options:
             path = handler.write_output_to_file(self.search_term,
-                                                pprint.pformat(self.analyzer.requirements_frequency_in_index()),
+                                                pprint.pformat(
+                                                    format_list(self.analyzer.requirements_frequency_in_index())),
                                                 "requirements_frequency")
             os.startfile(path)
 
         if 3 in options:
             path = handler.write_output_to_file(self.search_term,
-                                                pprint.pformat(self.analyzer.benefits_frequency_in_index()),
+                                                pprint.pformat(
+                                                    format_list(self.analyzer.benefits_frequency_in_index())),
                                                 "benefits_frequency")
             os.startfile(path)
 
         if 4 in options:
             path = handler.write_output_to_file(self.search_term,
-                                                pprint.pformat(self.analyzer.skill_frquency_in_index()),
+                                                pprint.pformat(
+                                                    self.analyzer.skill_frquency_in_index()),
                                                 "skills_frequency")
             os.startfile(path)
 
 # controller = MainController()
-# controller.run_wih_flags("digital change management", [0, 1, 2],
+# controller.run_wih_flags("digital innovation", [0, 1, 2],
 #                          use_stored_links=True,
 #                          use_stored_postings=True,
 #                          re_index=False)
 # controller.present_results([1])
+# controller.present_results([2])
 # controller.present_results([3])
+# controller.present_results([4])

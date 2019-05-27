@@ -18,7 +18,7 @@ menutext = {
     "saved_postings_avail": "Der eingegebene Suchbegriff wurde schon einmal eingegeben. Es liegen bereits "
                          "geparste Postings zu dieser Anfrage vor. Sollen diese verwendet werden[YES], oder sollen "
                          "die Postings neu geparst werden[NO]?\n Das verwenden abgespeicherter Postings ist "
-                         "(sehr) zeit- und bandbreitesparend. Das Programm springt bei [YES] direkt in die Analyse.",
+                         "(sehr) zeit- und bandbreitesparend.",
     "index_avail": "Für den eingegebenen Suchbegriff existiert bereits ein Dokument-Index. Soll dieser verwendet werden"
                    "[NO]? oder soll reindexiert werden [YES]?"
 }
