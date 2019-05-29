@@ -152,7 +152,6 @@ class Posting:
         self.empolyment_type: str = None
         self.location: list = [0, 0]
         self.experience_requirements: str = None
-        self.skills: str = None
         self.posting_text: dict = None
 
     def __str__(self):
@@ -170,8 +169,7 @@ class Posting:
                "Branche: {5}\n" \
                "Beschäftigungsverhältnis: {6}\n" \
                "Berufserhfarung: {7}\n" \
-               "Skills: {8}\n" \
-               "Anzeigentext:\n {9}\n".format(
+               "Anzeigentext:\n{8}\n".format(
             self.url,
             self.title,
             self.organization,
@@ -180,7 +178,6 @@ class Posting:
             self.industry,
             self.empolyment_type,
             self.experience_requirements,
-            self.skills,
             posting_text_stringbuilder())
 
     def __hash__(self):
@@ -233,9 +230,6 @@ class PostingParser:
 
             if posting_data.get("experienceRequirements") is not None:
                 posting.experience_requirements = posting_data.get("experienceRequirements").lower()
-
-            if posting_data.get("skills") is not None:
-                posting.skills = posting_data.get("skills").lower()
 
             if posting_data.get("description") is not None:
                 posting.posting_text = self.__parse_description(posting_data.get("description"))

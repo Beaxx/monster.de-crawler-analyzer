@@ -313,8 +313,7 @@ class Outputform(np.Form):
                                                      values=['Index Informationen',
                                                              'Häufigste Tätigkeiten',
                                                              'Häufigste Anforderungen',
-                                                             'Häufigste Benefits',
-                                                             'Häufigkeit Skills'])
+                                                             'Häufigste Benefits'])
 
     def afterEditing(self):
         """

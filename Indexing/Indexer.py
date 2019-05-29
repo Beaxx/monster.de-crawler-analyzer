@@ -23,7 +23,6 @@ class Indexer:
             experience_requirements=TEXT(),
             industry=KEYWORD(),
             organization=ID(stored=True),
-            skills=KEYWORD(commas=True),
             title=TEXT(stored=True),
             url=STORED(),
             parent_identifier=NUMERIC(stored=True),
@@ -62,7 +61,6 @@ class Indexer:
                 organization=posting.organization,
                 title=posting.title,
                 url=posting.url,
-                skills=posting.skills,
                 parent_identifier=i
             )
 
